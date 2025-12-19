@@ -552,14 +552,11 @@ class FunASRNano(nn.Module):
             prompt += f"热词列表：[{hotwords}]\n"
         else:
             prompt = ""
-        language = kwargs.get("language", "auto")
-        if language not in ("auto", "zh", "en", "ja"):
-            language = "auto"
-        if language == "auto":
+        language = kwargs.get("language", None)
+        if language is None:
             prompt += "语音转写"
         else:
-            LANGUAGE_MAP = {"zh": "中文", "en": "英文", "ja": "日文"}
-            prompt += f"语音转写成{LANGUAGE_MAP[language]}"
+            prompt += f"语音转写成{language}"
         itn = kwargs.get("itn", True)
         if not itn:
             prompt += "，不进行文本规整"
