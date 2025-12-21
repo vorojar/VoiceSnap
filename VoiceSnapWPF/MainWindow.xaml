@@ -3,16 +3,28 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tb="http://www.hardcodet.net/taskbar"
         Title="VoiceSnap 语闪" 
-        Height="450" Width="600"
-        ResizeMode="NoResize"
+        Height="520" Width="780"
         WindowStartupLocation="CenterScreen"
-        Background="#F2F2F7"
-        Visibility="Hidden"
+        Background="Transparent"
+        AllowsTransparency="True"
+        WindowStyle="None"
         ShowInTaskbar="False"
         Closing="Window_Closing"
         FontFamily="Segoe UI, Microsoft YaHei"
-        FocusVisualStyle="{x:Null}">
-    
+        FocusVisualStyle="{x:Null}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        Visibility="Hidden">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40" 
+                      GlassFrameThickness="0" 
+                      CornerRadius="0" 
+                      ResizeBorderThickness="4"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <!-- macOS Style Toggle Switch -->
         <Style x:Key="MacOSToggleSwitch" TargetType="CheckBox">
@@ -50,7 +62,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Border" Background="Transparent" CornerRadius="8" Margin="10,2" Padding="12,8">
+                        <Border x:Name="Border" Background="Transparent" CornerRadius="8" Margin="10,2" Padding="12,10">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="Icon" Text="{TemplateBinding Tag}" FontSize="16" Margin="0,0,12,0" VerticalAlignment="Center"/>
                                 <ContentPresenter VerticalAlignment="Center"/>
@@ -75,17 +87,12 @@
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         </Style>
 
-        <!-- Card Style -->
+        <!-- Card Style (Inside Module) -->
         <Style x:Key="SettingsCard" TargetType="Border">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="#F9F9F9"/>
+            <Setter Property="CornerRadius" Value="12"/>
             <Setter Property="Padding" Value="16"/>
             <Setter Property="Margin" Value="0,0,0,12"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.05"/>
-                </Setter.Value>
-            </Setter>
         </Style>
 
         <!-- Section Header Style -->
@@ -95,145 +102,262 @@
             <Setter Property="Foreground" Value="#8E8E93"/>
             <Setter Property="Margin" Value="4,0,0,8"/>
         </Style>
+
+        <!-- Window Control Button Style -->
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#454552"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#E5E5EA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Close Button Style -->
+        <Style x:Key="CloseButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Foreground" Value="#454552"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="180"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+    <Border Background="#F8F9FA" CornerRadius="16" BorderBrush="#D1D1D6" BorderThickness="1" Margin="15" RenderOptions.ClearTypeHint="Enabled">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.15"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="180"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- Sidebar -->
-        <Border Grid.Column="0" Background="#EBEBF0" BorderBrush="#D1D1D6" BorderThickness="0,0,1,0">
-            <Grid>
+            <!-- Sidebar Area (Unified with Title) -->
+            <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="60"/> <!-- Logo/Title Area -->
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                
-                <StackPanel Grid.Row="0" Margin="0,20,0,0">
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="20,20,0,0">
+                    <Border Width="24" Height="24" Background="#007AFF" CornerRadius="6" Margin="0,0,10,0">
+                        <TextBlock Text="V" Foreground="White" FontWeight="Bold" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="VoiceSnap" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="#1C1C1E"/>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="0,10,0,0">
                     <RadioButton Content="常规" Tag="⚙️" Style="{StaticResource SidebarButton}" IsChecked="True" x:Name="NavGeneral" Click="Nav_Click"/>
                     <RadioButton Content="快捷键" Tag="⌨️" Style="{StaticResource SidebarButton}" x:Name="NavHotkeys" Click="Nav_Click"/>
                     <RadioButton Content="关于" Tag="ℹ️" Style="{StaticResource SidebarButton}" x:Name="NavAbout" Click="Nav_Click"/>
                 </StackPanel>
-                
-                <!-- Bottom Status Dot -->
-                <StackPanel Grid.Row="1" Margin="20,0,0,20" Orientation="Horizontal">
+
+                <StackPanel Grid.Row="2" Margin="20,0,0,25" Orientation="Horizontal">
                     <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#FF3B30" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock x:Name="StatusLabel" Text="未就绪" FontSize="11" Foreground="#8E8E93" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
-        </Border>
 
-        <!-- Content Area -->
-        <Grid Grid.Column="1" Margin="30">
-            <!-- General Page -->
-            <StackPanel x:Name="PageGeneral" Visibility="Visible">
-                <TextBlock Text="常规设置" FontSize="24" FontWeight="Bold" Margin="0,0,0,20" Foreground="#1C1C1E"/>
-                
-                <TextBlock Text="偏好" Style="{StaticResource SectionHeader}"/>
-                <Border Style="{StaticResource SettingsCard}">
-                    <StackPanel>
-                        <CheckBox x:Name="AutoHideCheckbox" 
-                                  Content="自动隐藏指示器" 
-                                  IsChecked="True"
-                                  Style="{StaticResource MacOSToggleSwitch}"
-                                  Checked="AutoHideCheckbox_Changed"
-                                  Unchecked="AutoHideCheckbox_Changed"/>
-                        <Separator Background="#F2F2F7" Margin="-16,12,-16,12"/>
-                        <CheckBox x:Name="StartupCheckbox" 
-                                  Content="开机自动启动" 
-                                  IsChecked="False"
-                                  Style="{StaticResource MacOSToggleSwitch}"
-                                  Checked="StartupCheckbox_Changed"
-                                  Unchecked="StartupCheckbox_Changed"/>
-                    </StackPanel>
-                </Border>
+            <!-- Right Content Module -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40"/> <!-- Custom Title Bar -->
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                <TextBlock Text="音频" Style="{StaticResource SectionHeader}"/>
-                <Border Style="{StaticResource SettingsCard}">
-                    <TextBlock x:Name="DeviceLabel" Text="正在检测设备..." FontSize="13" Foreground="#1C1C1E"/>
-                </Border>
-            </StackPanel>
+                <!-- Window Controls (Right Top) -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,12,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Content="" FontFamily="Segoe MDL2 Assets" Style="{StaticResource CloseButton}" Click="CloseWindow_Click"/>
+                </StackPanel>
 
-            <!-- Hotkeys Page -->
-            <StackPanel x:Name="PageHotkeys" Visibility="Collapsed">
-                <TextBlock Text="快捷键" FontSize="24" FontWeight="Bold" Margin="0,0,0,20" Foreground="#1C1C1E"/>
-                
-                <TextBlock Text="录音控制" Style="{StaticResource SectionHeader}"/>
-                <Border Style="{StaticResource SettingsCard}">
+                <!-- The White Module (Floating Card) -->
+                <Border Grid.Row="1" Background="White" CornerRadius="20" Margin="0,0,12,12" Padding="30">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.03"/>
+                    </Border.Effect>
                     <Grid>
-                        <TextBlock Text="长按触发录音" VerticalAlignment="Center" FontSize="13"/>
-                        <Button x:Name="HotkeyButton" Click="HotkeyButton_Click" HorizontalAlignment="Right" Cursor="Hand" FocusVisualStyle="{x:Null}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="BtnBorder" Background="#F2F2F7" CornerRadius="6" Padding="12,6">
-                                        <TextBlock x:Name="BtnText" Text="{Binding ElementName=HotkeyLabel, Path=Text}" FontWeight="Bold" Foreground="#007AFF"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="BtnBorder" Property="Background" Value="#E5E5EA"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                        <!-- Hidden label to store the text for the button template -->
-                        <TextBlock x:Name="HotkeyLabel" Text="Ctrl" Visibility="Collapsed"/>
+                        <!-- General Page -->
+                        <StackPanel x:Name="PageGeneral" Visibility="Visible">
+                            <TextBlock Text="常规设置" FontSize="24" FontWeight="Bold" Margin="0,0,0,24" Foreground="#1C1C1E"/>
+                            
+                            <TextBlock Text="偏好" Style="{StaticResource SectionHeader}"/>
+                            <Border Style="{StaticResource SettingsCard}">
+                                <StackPanel>
+                                    <CheckBox x:Name="AutoHideCheckbox" 
+                                              Content="自动隐藏指示器" 
+                                              IsChecked="True"
+                                              Style="{StaticResource MacOSToggleSwitch}"
+                                              Checked="AutoHideCheckbox_Changed"
+                                              Unchecked="AutoHideCheckbox_Changed"/>
+                                    <Separator Background="#EEEEEE" Margin="-16,12,-16,12"/>
+                                    <CheckBox x:Name="StartupCheckbox" 
+                                              Content="开机自动启动" 
+                                              IsChecked="False"
+                                              Style="{StaticResource MacOSToggleSwitch}"
+                                              Checked="StartupCheckbox_Changed"
+                                              Unchecked="StartupCheckbox_Changed"/>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="音频" Style="{StaticResource SectionHeader}"/>
+                            <Border Style="{StaticResource SettingsCard}">
+                                <TextBlock x:Name="DeviceLabel" Text="正在检测设备..." FontSize="13" Foreground="#1C1C1E"/>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Hotkeys Page -->
+                        <StackPanel x:Name="PageHotkeys" Visibility="Collapsed">
+                            <TextBlock Text="快捷键" FontSize="24" FontWeight="Bold" Margin="0,0,0,24" Foreground="#1C1C1E"/>
+                            
+                            <TextBlock Text="录音控制" Style="{StaticResource SectionHeader}"/>
+                            <Border Style="{StaticResource SettingsCard}">
+                                <Grid>
+                                    <TextBlock Text="长按触发录音" VerticalAlignment="Center" FontSize="13"/>
+                                    <Button x:Name="HotkeyButton" Click="HotkeyButton_Click" HorizontalAlignment="Right" Cursor="Hand" FocusVisualStyle="{x:Null}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="BtnBorder" Background="#EBEBF0" CornerRadius="6" Padding="12,6">
+                                                    <TextBlock x:Name="BtnText" Text="{Binding ElementName=HotkeyLabel, Path=Text}" FontWeight="Bold" Foreground="#007AFF"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="BtnBorder" Property="Background" Value="#D1D1D6"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <TextBlock x:Name="HotkeyLabel" Text="Ctrl" Visibility="Collapsed"/>
+                                </Grid>
+                            </Border>
+                            <TextBlock x:Name="HotkeyHint" Text="提示：点击上方按钮后按下键盘任意键即可更改。" 
+                                       FontSize="11" Foreground="#8E8E93" TextWrapping="Wrap" Margin="4,0,0,0"/>
+                        </StackPanel>
+
+                        <!-- About Page -->
+                        <StackPanel x:Name="PageAbout" Visibility="Collapsed">
+                            <Border Width="70" Height="70" Background="#007AFF" CornerRadius="16" Margin="0,10,0,20" HorizontalAlignment="Center">
+                                <TextBlock Text="V" Foreground="White" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="VoiceSnap 语闪" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#1C1C1E"/>
+                            <TextBlock x:Name="VersionLabel" Text="版本 1.3.0" FontSize="13" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,4,0,24"/>
+                            
+                            <Border Style="{StaticResource SettingsCard}">
+                                <StackPanel>
+                                    <TextBlock Text="基于 SenseVoice 大模型与 Sherpa-Onnx 引擎构建。无需联网，即可体验极速、精准的中英日韩粤混合识别。" 
+                                               TextWrapping="Wrap" FontSize="13" LineHeight="20" Foreground="#1C1C1E"/>
+                                    <Separator Background="#EEEEEE" Margin="-16,12,-16,12"/>
+                                    <TextBlock Text="由 易哈佛 · 小麦 设计开发" FontSize="11" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,4">
+                                        <TextBlock Text="运行模式: " FontSize="10" Foreground="#AEAEB2"/>
+                                        <TextBlock x:Name="EngineModeLabel" Text="正在检测..." FontSize="10" Foreground="#AEAEB2"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
+                                        <Button Content="访问官网" 
+                                                Click="GithubButton_Click"
+                                                Cursor="Hand"
+                                                FocusVisualStyle="{x:Null}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <TextBlock Text="{TemplateBinding Content}" 
+                                                               Foreground="#007AFF" 
+                                                               FontSize="12" 
+                                                               TextDecorations="Underline"/>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                        <TextBlock Text=" · " Foreground="#8E8E93" FontSize="12" VerticalAlignment="Center"/>
+                                        <Button Content="检查更新" 
+                                                Click="CheckUpdateButton_Click"
+                                                Cursor="Hand"
+                                                FocusVisualStyle="{x:Null}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <TextBlock Text="{TemplateBinding Content}" 
+                                                               Foreground="#007AFF" 
+                                                               FontSize="12" 
+                                                               TextDecorations="Underline"/>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </StackPanel>
+                                    <TextBlock x:Name="UpdateStatusLabel" 
+                                               Text="" 
+                                               FontSize="11" 
+                                               Foreground="#8E8E93" 
+                                               HorizontalAlignment="Center" 
+                                               Margin="0,0,0,0"
+                                               Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </Grid>
                 </Border>
-                <TextBlock x:Name="HotkeyHint" Text="提示：点击上方按钮后按下键盘任意键即可更改。" 
-                           FontSize="11" Foreground="#8E8E93" TextWrapping="Wrap" Margin="4,0,0,0"/>
-            </StackPanel>
 
-            <!-- About Page -->
-            <StackPanel x:Name="PageAbout" Visibility="Collapsed">
-                <Border Width="80" Height="80" Background="#007AFF" CornerRadius="18" Margin="0,20,0,20" HorizontalAlignment="Center">
-                    <TextBlock Text="VS" Foreground="White" FontSize="36" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-                <TextBlock Text="VoiceSnap 语闪" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#1C1C1E"/>
-                <TextBlock Text="版本 1.0.0 (Build 2025)" FontSize="13" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,4,0,20"/>
-                
-                <Border Style="{StaticResource SettingsCard}">
-                    <StackPanel>
-                        <TextBlock Text="VoiceSnap 是一款极简的离线语音输入法（内置 Fun-ASR-Nano，极速、识别率超高）" 
-                                   TextWrapping="Wrap" FontSize="13" LineHeight="20" Foreground="#1C1C1E"/>
-                        <Separator Background="#F2F2F7" Margin="-16,12,-16,12"/>
-                        <TextBlock Text="由 易哈佛小麦 设计开发" FontSize="11" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,0,0,12"/>
-                        <Button Content="访问 GitHub 项目主页" 
-                                Click="GithubButton_Click"
-                                HorizontalAlignment="Center"
-                                Cursor="Hand"
-                                FocusVisualStyle="{x:Null}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <TextBlock Text="{TemplateBinding Content}" 
-                                               Foreground="#007AFF" 
-                                               FontSize="12" 
-                                               TextDecorations="Underline"/>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
+                <!-- Initializing View (Onboarding) -->
+                <Border x:Name="InitialView" Grid.Row="1" Background="White" CornerRadius="20" Margin="0,0,12,12" Visibility="Collapsed">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Border x:Name="OnboardingLogo" Width="60" Height="60" Background="#007AFF" CornerRadius="14" Margin="0,0,0,30">
+                            <TextBlock Text="V" Foreground="White" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="InitStatusLabel" Text="正在准备离线识别引擎..." FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="#1C1C1E" Margin="0,0,0,20"/>
+                        <Grid x:Name="InitProgressBarContainer" Width="240" Height="6">
+                            <Border Background="#F2F2F7" CornerRadius="3"/>
+                            <Border x:Name="InitProgressFill" Background="#007AFF" CornerRadius="3" HorizontalAlignment="Left" Width="0"/>
+                        </Grid>
+                        <TextBlock x:Name="InitDetailLabel" Text="0%" FontSize="12" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,10,0,0"/>
                     </StackPanel>
                 </Border>
-            </StackPanel>
+            </Grid>
+
+            <!-- System Tray Icon -->
+            <tb:TaskbarIcon x:Name="TrayIcon"
+                            ToolTipText="VoiceSnap 语闪"
+                            DoubleClickCommand="{Binding ShowWindowCommand}"
+                            TrayLeftMouseDown="TrayIcon_TrayLeftMouseDown"
+                            Visibility="Visible">
+                <tb:TaskbarIcon.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="显示窗口" Click="ShowWindow_Click"/>
+                        <Separator/>
+                        <MenuItem Header="退出" Click="ExitApp_Click"/>
+                    </ContextMenu>
+                </tb:TaskbarIcon.ContextMenu>
+            </tb:TaskbarIcon>
         </Grid>
-
-        <!-- System Tray Icon -->
-        <tb:TaskbarIcon x:Name="TrayIcon"
-                        ToolTipText="VoiceSnap 语闪 - 长按 Ctrl 说话"
-                        DoubleClickCommand="{Binding ShowWindowCommand}"
-                        TrayLeftMouseDown="TrayIcon_TrayLeftMouseDown"
-                        Visibility="Visible">
-            <tb:TaskbarIcon.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Header="显示窗口" Click="ShowWindow_Click"/>
-                    <Separator/>
-                    <MenuItem Header="退出" Click="ExitApp_Click"/>
-                </ContextMenu>
-            </tb:TaskbarIcon.ContextMenu>
-        </tb:TaskbarIcon>
-    </Grid>
+    </Border>
 </Window>
-
-

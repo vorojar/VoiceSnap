@@ -1,7 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 using NAudio.Wave;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 
 namespace VoiceSnap
 {
@@ -27,6 +27,32 @@ namespace VoiceSnap
         
         // 音量更新事件
         public event Action<float>? VolumeUpdated;
+        
+        // 设备变更事件
+        public event Action? DeviceChanged;
+
+        // 能量检测 (VAD)
+        private float _maxVolumeInSession = 0;
+        private const float SilenceThreshold = 0.05f; // 能量阈值
+
+        private readonly MMDeviceEnumerator _deviceEnumerator;
+        private readonly DeviceNotificationClient _notificationClient;
+
+        public AudioRecorder()
+        {
+            _deviceEnumerator = new MMDeviceEnumerator();
+            _notificationClient = new DeviceNotificationClient();
+            _notificationClient.DefaultDeviceChanged += (s, e) => DeviceChanged?.Invoke();
+            
+            try
+            {
+                _deviceEnumerator.RegisterEndpointNotificationCallback(_notificationClient);
+            }
+            catch (Exception ex)
+            {
+                App.LogError("AudioRecorder: 注册设备通知失败", ex);
+            }
+        }
 
         public string GetDeviceName()
         {
@@ -53,6 +79,7 @@ namespace VoiceSnap
             {
                 App.Log("AudioRecorder: 纯内存录音开始");
                 
+                _maxVolumeInSession = 0;
                 _audioDataStream = new MemoryStream();
                 
                 _waveIn = new WaveInEvent
@@ -160,9 +187,21 @@ namespace VoiceSnap
                 }
                 float rms = (float)Math.Sqrt(sum / sampleCount);
                 CurrentVolume = Math.Min(1.0f, rms * 8);
+                
+                if (CurrentVolume > _maxVolumeInSession)
+                    _maxVolumeInSession = CurrentVolume;
+
                 VolumeUpdated?.Invoke(CurrentVolume);
             }
             catch { }
+        }
+
+        /// <summary>
+        /// 检查当前录音会话是否包含有效语音
+        /// </summary>
+        public bool HasVoiceActivity()
+        {
+            return _maxVolumeInSession > SilenceThreshold;
         }
         
         private void OnRecordingStopped(object? sender, StoppedEventArgs e)
@@ -170,6 +209,28 @@ namespace VoiceSnap
             if (e.Exception != null) App.LogError("AudioRecorder: 异常停止", e.Exception);
         }
         
+        /// <summary>
+        /// 停止录音并返回原始 PCM 数据
+        /// </summary>
+        public byte[]? StopRecordingRaw()
+        {
+            if (!_isRecording) return null;
+            _isRecording = false;
+            try
+            {
+                _waveIn?.StopRecording();
+                byte[]? rawData = _audioDataStream?.ToArray();
+                Cleanup();
+                return rawData;
+            }
+            catch (Exception ex)
+            {
+                App.LogError("AudioRecorder: 停止录音失败", ex);
+                Cleanup();
+                return null;
+            }
+        }
+
         private void Cleanup()
         {
             _waveIn?.Dispose();
@@ -181,7 +242,32 @@ namespace VoiceSnap
         public void Dispose()
         {
             if (_isRecording) StopRecording();
+            try
+            {
+                _deviceEnumerator.UnregisterEndpointNotificationCallback(_notificationClient);
+            }
+            catch { }
+            _deviceEnumerator.Dispose();
             Cleanup();
+        }
+
+        // 内部类用于接收设备通知
+        private class DeviceNotificationClient : IMMNotificationClient
+        {
+            public event EventHandler? DefaultDeviceChanged;
+
+            public void OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
+            {
+                if (flow == DataFlow.Capture && role == Role.Console)
+                {
+                    DefaultDeviceChanged?.Invoke(this, EventArgs.Empty);
+                }
+            }
+
+            public void OnDeviceAdded(string deviceId) { }
+            public void OnDeviceRemoved(string deviceId) { }
+            public void OnDeviceStateChanged(string deviceId, DeviceState newState) { }
+            public void OnPropertyValueChanged(string deviceId, PropertyKey key) { }
         }
     }
 }

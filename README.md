@@ -1,137 +1,128 @@
-# Fun-ASR
-
-「[简体中文](README_zh.md)」|「English」
-
-Fun-ASR is an end-to-end speech recognition large model launched by Tongyi Lab. It is trained on tens of millions of hours of real speech data, possessing powerful contextual understanding capabilities and industry adaptability. It supports low-latency real-time transcription and covers 31 languages. It excels in vertical domains such as education and finance, accurately recognizing professional terminology and industry expressions, effectively addressing challenges like "hallucination" generation and language confusion, achieving "clear hearing, understanding meaning, and accurate writing."
+# VoiceSnap 语闪
 
 <div align="center">
-<img src="images/funasr-v2.png">
-</div>
 
-<div align="center">
-<h4>
-<a href="https://funaudiollm.github.io/funasr"> Homepage </a>
-｜<a href="#core-features"> Core Features </a>
-｜<a href="#performance-evaluation"> Performance Evaluation </a>
-｜<a href="#environment-setup"> Environment Setup </a>
-｜<a href="#usage-tutorial"> Usage Tutorial </a>
+**极速离线语音输入工具**
 
-</h4>
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-brightgreen.svg)]()
+[![.NET](https://img.shields.io/badge/.NET-8.0-purple.svg)]()
 
-Model Repository: [modelscope](https://www.modelscope.cn/models/FunAudioLLM/Fun-ASR-Nano-2512), [huggingface](https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512)
-
-Online Experience:
-[ModelScope Community Space](https://modelscope.cn/studios/FunAudioLLM/Fun-ASR-Nano), [huggingface space](https://huggingface.co/spaces/FunAudioLLM/Fun-ASR-Nano)
+[English](#english) | [简体中文](#简体中文)
 
 </div>
 
-<a name="What's News"></a>
+---
 
-# What's New 🔥
+<a name="简体中文"></a>
 
-- 2025/12: [Fun-ASR-Nano-2512](https://modelscope.cn/models/FunAudioLLM/Fun-ASR-Nano-2512) is an end-to-end speech recognition large model trained on tens of millions of hours real speech data. It supports low-latency real-time transcription and covers 31 languages.
-- 2024/7: [FunASR](https://github.com/modelscope/FunASR) is a fundamental speech recognition toolkit that offers a variety of features, including speech recognition (ASR), Voice Activity Detection (VAD), Punctuation Restoration, Language Models, Speaker Verification, Speaker Diarization and multi-talker ASR.
+## 🌟 简介
 
-# Core Features 🎯
+VoiceSnap 语闪是一款基于 **Sherpa-ONNX** 和 **SenseVoice** 构建的高性能离线语音输入软件。它完全运行在本地，无需联网，保护您的隐私，并且响应速度极快。
 
-**Fun-ASR** focuses on high-precision speech recognition, multi-language support, and industry customization capabilities
+## ✨ 核心特性
 
-- **Far-field High-noise Recognition:** Deeply optimized for far-distance sound pickup and high-noise scenarios (such as conference rooms, in-vehicle environments, industrial sites, etc.), improving recognition accuracy to **93%**.
-- **Chinese Dialects and Regional Accents:**
-  - Supports **7 major dialects**: Wu, Cantonese, Min, Hakka, Gan, Xiang, Jin
-  - Covers **26 regional accents**: including Henan, Shaanxi, Hubei, Sichuan, Chongqing, Yunnan, Guizhou, Guangdong, Guangxi and more than 20 other regions
-- **Multi-language Free Speech:** Supports recognition of **31 languages**, with focused optimization on East and Southeast Asian languages, supporting free language switching and mixed recognition.
-- **Music Background Lyric Recognition:** Enhanced speech recognition performance under music background interference, supporting accurate recognition of lyric content in songs.
+| 特性 | 描述 |
+|------|------|
+| ⚡ **极速响应** | 基于 C# 原生开发，启动仅需 0.1 秒，内存占用低 |
+| 🔒 **完全离线** | 内置 SenseVoice 高精度大模型，数据不出本地 |
+| 🎯 **精准识别** | 支持中、英、日、韩、粤语混合识别，自动添加标点 |
+| 🎈 **极简交互** | 独特的「长按说话，松手即输」模式，不打断工作流 |
 
-# Environment Setup 🐍
+## 📥 下载安装
 
-```shell
-pip install -r requirements.txt
-```
+1. 从 [Releases](../../releases) 页面下载最新版本
+2. 解压到任意目录
+3. 双击运行 `VoiceSnap.exe`
+4. 首次运行会自动下载模型（约 200MB）
 
-<a name="usage-tutorial"></a>
+> **系统要求**: Windows 10 / Windows 11
 
-# TODO
+## 🎮 使用方法
 
-- [ ] Support returning timestamps
-- [ ] Support speaker diarization
-- [ ] Support model training
+1. **启动软件** - 成功启动后，屏幕右下角会出现一个半透明的胶囊指示器，显示「按住Ctrl说话」
+2. **长按说话** - 在任意可输入文字的地方（微信、Word、浏览器等），按住 **Ctrl** 键不放
+3. **语音输入** - 指示器变红并显示波形时，开始说话
+4. **松手即输** - 说完后松开 Ctrl 键，文字将自动输入到光标位置
 
-# Usage 🛠️
+## ⚙️ 设置说明
 
-## Inference
+- **托盘图标**: 在系统托盘区（右下角时间旁）可以找到 VoiceSnap 的图标
+- **右键菜单**: 右键点击托盘图标可以退出软件
+- **左键点击**: 打开设置面板，可以：
+  - 修改触发按键（支持 Ctrl, Alt, Shift, CapsLock 等）
+  - 设置开机自启
+  - 开启/关闭自动隐藏指示器
 
-### Using funasr for inference
+## ❓ 常见问题
 
-```python
-from funasr import AutoModel
+<details>
+<summary><b>Q: 为什么按住 Ctrl 没有反应？</b></summary>
 
-
-def main():
-    model_dir = "FunAudioLLM/Fun-ASR-Nano-2512"
-    model = AutoModel(
-        model=model_dir,
-        trust_remote_code=True,
-        remote_code="./model.py",
-        device="cuda:0",
-    )
-
-    wav_path = f"{model.model_path}/example/zh.mp3"
-    res = model.generate(input=[wav_path], cache={}, batch_size=1)
-    text = res[0]["text"]
-    print(text)
-
-    model = AutoModel(
-        model=model_dir,
-        trust_remote_code=True,
-        vad_model="fsmn-vad",
-        vad_kwargs={"max_single_segment_time": 30000},
-        remote_code="./model.py",
-        device="cuda:0",
-    )
-    res = model.generate(input=[wav_path], cache={}, batch_size=1)
-    text = res[0]["text"]
-    print(text)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-### Direct Inference
-
-```python
-from model import FunASRNano
-
-
-def main():
-    model_dir = "FunAudioLLM/Fun-ASR-Nano-2512"
-    m, kwargs = FunASRNano.from_pretrained(model=model_dir, device="cuda:0")
-    m.eval()
-
-    wav_path = f"{kwargs['model_path']}/example/zh.mp3"
-    res = m.inference(data_in=[wav_path], **kwargs)
-    text = res[0][0]["text"]
-    print(text)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-<details><summary> Parameter Description (click to expand) </summary>
-
-- `model_dir`: Model name or local disk model path.
-- `trust_remote_code`: Whether to trust remote code for loading custom model implementations.
-- `remote_code`: Specify the location of specific model code (e.g., `model.py` in the current directory), supporting both absolute and relative paths.
-- `device`: Specify the device to use, such as "cuda:0" or "cpu".
-
+请检查指示器状态是否为「按住Ctrl说话」。如果是「加载中」，请稍等。如果软件未启动，请检查托盘区是否有图标。
 </details>
 
-# Performance Evaluation 📝
+<details>
+<summary><b>Q: 识别准确率不高？</b></summary>
 
-We compared the multi-language speech recognition performance of Fun-ASR with other models on open-source benchmark datasets (including AISHELL-1, AISHELL-2, Wenetspeech, Librispeech, and Common Voice).
+请尽量使用清晰的普通话，并靠近麦克风。软件默认使用系统默认录音设备，请在系统声音设置中确认默认麦克风是否正确。
+</details>
 
-<div align="center">
-<img src="images/compare_en.png" width="800" />
-</div>
+<details>
+<summary><b>Q: 杀毒软件误报？</b></summary>
+
+由于软件涉及全局按键监听和模拟键盘输入，可能会被部分杀毒软件误判。本软件完全开源且安全，请放心添加信任。
+</details>
+
+## 🏗️ 技术栈
+
+- **开发框架**: .NET 8 + WPF
+- **语音引擎**: [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
+- **语音模型**: [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) (by FunAudioLLM)
+
+## 📜 开源许可
+
+本项目基于 [MIT License](LICENSE) 开源。
+
+---
+
+<a name="english"></a>
+
+## 🌟 Introduction
+
+VoiceSnap is a high-performance offline voice input tool built on **Sherpa-ONNX** and **SenseVoice**. It runs entirely locally, requires no internet connection, protects your privacy, and responds extremely fast.
+
+## ✨ Key Features
+
+| Feature | Description |
+|---------|-------------|
+| ⚡ **Instant Response** | Native C# development, starts in 0.1s with low memory usage |
+| 🔒 **Fully Offline** | Built-in SenseVoice high-precision model, data never leaves your device |
+| 🎯 **Accurate Recognition** | Supports Chinese, English, Japanese, Korean, Cantonese with auto-punctuation |
+| 🎈 **Simple Interaction** | Unique "hold to speak, release to type" mode |
+
+## 📥 Installation
+
+1. Download the latest version from [Releases](../../releases)
+2. Extract to any directory
+3. Run `VoiceSnap.exe`
+4. Models will be downloaded automatically on first run (~200MB)
+
+> **Requirements**: Windows 10 / Windows 11
+
+## 🎮 Usage
+
+1. **Launch** - A floating indicator will appear in the bottom-right corner showing "Hold Ctrl to speak"
+2. **Hold & Speak** - In any text input field, hold the **Ctrl** key
+3. **Voice Input** - When the indicator turns red with waveform, start speaking
+4. **Release to Type** - Release Ctrl when done, text will be typed automatically
+
+## 🏗️ Tech Stack
+
+- **Framework**: .NET 8 + WPF
+- **Speech Engine**: [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
+- **Voice Model**: [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) (by FunAudioLLM)
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).
