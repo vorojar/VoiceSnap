@@ -1,0 +1,61 @@
+<Window x:Class="VoiceSnap.FloatingIndicator"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VoiceSnap Indicator"
+        Width="200" Height="70"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual">
+    
+    <!-- 主容器 - 完全透明背景 -->
+    <Grid x:Name="MainContainer" Background="Transparent">
+        <!-- 单一胶囊形状容器 - 带阴影 -->
+        <Border x:Name="MainBorder" 
+                CornerRadius="24" 
+                Background="#D91C1C1E"
+                Margin="10"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Width="170"
+                Height="48">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="2" Opacity="0.4" Direction="270"/>
+            </Border.Effect>
+            
+            <!-- 内部高光边框 -->
+            <Border CornerRadius="23" 
+                    BorderBrush="#20FFFFFF" 
+                    BorderThickness="1"
+                    Background="Transparent">
+                
+                <!-- 内容区域 -->
+                <StackPanel x:Name="BarsPanel" 
+                            Orientation="Horizontal" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Center">
+                    
+                    <!-- 5根声纹条 -->
+                    <Border x:Name="Bar1" Width="5" Height="14" CornerRadius="2.5" Background="#FF3B30" Margin="0,0,4,0"/>
+                    <Border x:Name="Bar2" Width="5" Height="14" CornerRadius="2.5" Background="#FF3B30" Margin="0,0,4,0"/>
+                    <Border x:Name="Bar3" Width="5" Height="14" CornerRadius="2.5" Background="#FF3B30" Margin="0,0,4,0"/>
+                    <Border x:Name="Bar4" Width="5" Height="14" CornerRadius="2.5" Background="#FF3B30" Margin="0,0,4,0"/>
+                    <Border x:Name="Bar5" Width="5" Height="14" CornerRadius="2.5" Background="#FF3B30"/>
+                    
+                    <!-- 状态文字 -->
+                    <TextBlock x:Name="StatusText" 
+                               Text="" 
+                               Foreground="#B4B4B4"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0"/>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</Window>
+

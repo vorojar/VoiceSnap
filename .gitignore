@@ -1,0 +1,42 @@
+# .gitignore for VoiceSnap
+
+# Build folders
+bin/
+obj/
+publish/
+
+# IDE folders
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+env/
+
+# Build artifacts
+dist/
+build/
+VoiceSnap.exe
+*.spec
+
+# Models (Crucial: User requested not to upload models)
+models/
+**/models/
+*.onnx
+*.pb
+*.pt
+*.pth
+
+# Temporary files
+temp_*.wav
+*.log
