@@ -1,6 +1,0 @@
-{
-  "HotkeyVK": 17,
-  "AutoHide": true,
-  "ModelDownloadUrl": "http://www.maikami.com/voicesnap/sensevoice.zip",
-  "FallbackModelDownloadUrl": "https://modelscope.cn/models/sherpa-onnx/sherpa-onnx-sense-voice-zh-en-ja-ko-yue/resolve/master/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2"
-}
