@@ -10,6 +10,8 @@
 
 [English](#english) | [简体中文](#简体中文)
 
+![VoiceSnap Screenshot](screenshot.png)
+
 </div>
 
 ---
