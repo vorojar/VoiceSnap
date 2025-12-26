@@ -1,0 +1,51 @@
+# ===================
+# VoiceSnap .gitignore
+# ===================
+
+# ===== 模型文件 (太大，不上传) =====
+**/models/
+*.onnx
+*.bin
+sensevoice*.tar.bz2
+
+# ===== 发布目录中的大文件 =====
+VoiceSnap_Release/VoiceSnap.exe
+VoiceSnap_Release/*.zip
+VoiceSnap_Release/app.log
+VoiceSnap_Release/config.json
+
+# ===== .NET 构建产物 =====
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+
+# ===== Python 残留 (如果有) =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+
+# ===== IDE =====
+.vs/
+.vscode/
+*.sln.docstates
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 临时文件 =====
+*.log
+*.tmp
+*.temp
+temp_*.wav
