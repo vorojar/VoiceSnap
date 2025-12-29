@@ -53,6 +53,8 @@ Modify the `audio_encoder_conf.freeze`, `audio_adaptor_conf.freeze`, and `llm_co
 
 Set the `freeze` parameter of the modules to be fine-tuned to false(by default, only the LLM is fine-tuned).
 
+For more detailed parameters, refer to: [SenseVoice Model Training and Testing](https://github.com/modelscope/FunASR/blob/main/docs/tutorial/README.md#Model%20Training%20and%20Testing)
+
 ```
 bash finetune.sh
 ```

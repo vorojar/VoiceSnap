@@ -57,6 +57,8 @@ python tools/scp2jsonl.py \
 
 将需要微调的模块 `freeze` 设置成 `false`（默认只微调 llm）。
 
+更多参数细节参考：[SenseVoice 模型训练与测试](https://github.com/modelscope/FunASR/blob/main/docs/tutorial/README_zh.md#%E6%A8%A1%E5%9E%8B%E8%AE%AD%E7%BB%83%E4%B8%8E%E6%B5%8B%E8%AF%95)
+
 ```
 bash finetune.sh
 ```

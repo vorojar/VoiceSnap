@@ -8,16 +8,7 @@ export CUDA_VISIBLE_DEVICES="0"
 gpu_num=$(echo $CUDA_VISIBLE_DEVICES | awk -F "," '{print NF}')
 
 # model_name from model_hub, or model_dir in local path
-
-## option 1, download model automatically
 model_name_or_model_dir="FunAudioLLM/Fun-ASR-Nano-2512"
-
-## option 2, download model by git
-#local_path_root=${workspace}/modelscope_models
-#mkdir -p ${local_path_root}/${model_name_or_model_dir}
-#git clone https://www.modelscope.cn/${model_name_or_model_dir}.git ${local_path_root}/${model_name_or_model_dir}
-#model_name_or_model_dir=${local_path_root}/${model_name_or_model_dir}
-
 
 # data dir, which contains: train.json, val.json
 train_data=${workspace}/data/train_example.jsonl
@@ -39,7 +30,6 @@ DISTRIBUTED_ARGS="
     --master_addr ${MASTER_ADDR:-127.0.0.1} \
     --master_port ${MASTER_PORT:-26669}
 "
-
 echo $DISTRIBUTED_ARGS
 
 # funasr trainer path
@@ -70,7 +60,5 @@ ${train_tool} \
 ++optim_conf.lr=0.0002 \
 ++audio_encoder_conf.freeze=true \
 ++audio_adaptor_conf.freeze=true \
-++llm_conf.freeze=true \
-++llm_conf.use_lora=true \
-++llm_conf.lora_conf.freeze_lora=false \
+++llm_conf.freeze=false \
 ++output_dir="${output_dir}" &> ${log_file}
