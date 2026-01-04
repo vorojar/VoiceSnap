@@ -2,3 +2,6 @@ torch
 torchaudio
 transformers
 git+https://github.com/modelscope/FunASR
+zhconv
+whisper_normalizer
+compute-wer
