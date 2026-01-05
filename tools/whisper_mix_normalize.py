@@ -7,6 +7,7 @@ import sys
 
 import cn_tn as cn_tn
 import format5res as cn_itn
+import pyopenjtalk
 import zhconv
 from whisper_normalizer.basic import BasicTextNormalizer
 from whisper_normalizer.english import EnglishTextNormalizer
@@ -36,7 +37,26 @@ def is_number(s):
     return re.match(pattern, s) is not None
 
 
-def normalize_text(srcfn, dstfn):
+def safe_ja_g2p(text, kana=True, max_length=100):
+    if len(text) > max_length:
+        # 如果文本过长，分段处理
+        parts = []
+        for i in range(0, len(text), max_length):
+            part = text[i:i+max_length]
+            try:
+                converted = pyopenjtalk.g2p(part, kana=kana)
+                parts.append(converted)
+            except:
+                parts.append(part)  # 如果转换失败，使用原文本
+        return ' '.join(parts)
+    else:
+        try:
+            return pyopenjtalk.g2p(text, kana=kana)
+        except:
+            return text  # 如果转换失败，返回原文本
+
+
+def normalize_text(srcfn, dstfn, kana=False):
     with open(srcfn, "r") as f_read, open(dstfn, "w") as f_write:
         all_lines = f_read.readlines()
         for line in all_lines:
@@ -50,6 +70,10 @@ def normalize_text(srcfn, dstfn):
             line_arr[1] = re.sub(r"=", " ", line_arr[1])
             line_arr[1] = re.sub(r"\(", " ", line_arr[1])
             line_arr[1] = re.sub(r"\)", " ", line_arr[1])
+            # From Chongjia Ni
+            if kana:
+                line_arr[1] = safe_ja_g2p(line_arr[1], kana=True, max_length=100)
+
             line_arr = f"{key}\t{line_arr[1]}".split()
             conts = []
             language_bak = ""
@@ -108,4 +132,4 @@ def normalize_text(srcfn, dstfn):
 if __name__ == "__main__":
     srcfn = sys.argv[1]
     dstfn = sys.argv[2]
-    normalize_text(srcfn, dstfn)
+    normalize_text(srcfn, dstfn, True if len(sys.argv) > 3 else False)

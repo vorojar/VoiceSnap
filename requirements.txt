@@ -4,4 +4,5 @@ transformers
 git+https://github.com/modelscope/FunASR
 zhconv
 whisper_normalizer
+pyopenjtalk-plus
 compute-wer
