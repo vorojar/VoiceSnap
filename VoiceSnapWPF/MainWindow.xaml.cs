@@ -31,7 +31,6 @@ namespace VoiceSnap
         public bool AutoHide { get; set; } = true;
         public string ModelDownloadUrl { get; set; } = "http://www.maikami.com/voicesnap/sensevoice.zip";
         public string FallbackModelDownloadUrl { get; set; } = "https://modelscope.cn/models/sherpa-onnx/sherpa-onnx-sense-voice-zh-en-ja-ko-yue/resolve/master/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2";
-        public int InputMode { get; set; } = 0; // 0: Clipboard, 1: Typing
     }
 
     public partial class MainWindow : Window
@@ -382,10 +381,8 @@ namespace VoiceSnap
             bool hasVoice = _audioRecorder.HasVoiceActivity();
             byte[]? rawData = _audioRecorder.StopRecordingRaw();
             bool autoHide = false;
-            bool useTyping = false;
             Dispatcher.Invoke(() => {
                 autoHide = AutoHideCheckbox.IsChecked == true;
-                useTyping = InputModeTyping.IsChecked == true;
                 UpdateRecordingStatus("⌛ 正在识别...", "Orange");
                 _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Processing);
             });
@@ -414,7 +411,7 @@ namespace VoiceSnap
 
                             if (!string.IsNullOrEmpty(text))
                             {
-                                SafePasteText(text, useTyping);
+                                SafePasteText(text);
                                 Dispatcher.Invoke(() => {
                                     _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
                                     UpdateRecordingStatus("✓ 已输入 (原生)", "Green");
@@ -795,10 +792,10 @@ namespace VoiceSnap
         }
 
         /// <summary>
-        /// 安全粘贴：等待用户物理松开按键后再执行，避免冲突
-        /// 注意：此方法应在后台线程调用
+        /// 安全粘贴：等待用户物理松开按键后再执行
+        /// 策略：先剪贴板，失败自动降级模拟打字
         /// </summary>
-        private void SafePasteText(string text, bool useTyping)
+        private void SafePasteText(string text)
         {
             // 1. 等待用户物理松开触发键（最多等 500ms）
             for (int i = 0; i < 50; i++)
@@ -808,26 +805,20 @@ namespace VoiceSnap
             }
             Thread.Sleep(50);
 
-            if (useTyping)
+            // 2. 先尝试剪贴板
+            if (Win32SetClipboard(text))
             {
-                NativeType(text);
-            }
-            else
-            {
-                // 2. 写入剪贴板
-                if (!Win32SetClipboard(text))
-                {
-                    Dispatcher.Invoke(() => UpdateRecordingStatus("✗ 剪贴板占用", "Orange"));
-                    return;
-                }
-
-                // 3. 发送 Ctrl+V
                 var inputs = new INPUT[4];
                 inputs[0] = CreateKeyInput(VK_CONTROL, 0);
                 inputs[1] = CreateKeyInput(VK_V, 0);
                 inputs[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP);
                 inputs[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP);
                 SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
+            }
+            else
+            {
+                // 3. 剪贴板失败，降级模拟打字
+                NativeType(text);
             }
         }
 
@@ -1035,14 +1026,6 @@ namespace VoiceSnap
             }
         }
 
-        private void InputMode_Changed(object sender, RoutedEventArgs e)
-        {
-            if (IsLoaded)
-            {
-                SaveConfig();
-            }
-        }
-
         private void CheckStartupStatus()
         {
             try
@@ -1155,8 +1138,6 @@ namespace VoiceSnap
                         AutoHideCheckbox.IsChecked = config.AutoHide;
                         _modelDownloadUrl = config.ModelDownloadUrl ?? _modelDownloadUrl;
                         _fallbackModelDownloadUrl = config.FallbackModelDownloadUrl ?? _fallbackModelDownloadUrl;
-                        if (config.InputMode == 1) InputModeTyping.IsChecked = true;
-                        else InputModeClipboard.IsChecked = true;
                     }
                 }
                 else
@@ -1180,8 +1161,7 @@ namespace VoiceSnap
                     HotkeyVK = _currentHotkeyVK,
                     AutoHide = AutoHideCheckbox.IsChecked ?? true,
                     ModelDownloadUrl = _modelDownloadUrl,
-                    FallbackModelDownloadUrl = _fallbackModelDownloadUrl,
-                    InputMode = InputModeTyping.IsChecked == true ? 1 : 0
+                    FallbackModelDownloadUrl = _fallbackModelDownloadUrl
                 };
                 string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json);
