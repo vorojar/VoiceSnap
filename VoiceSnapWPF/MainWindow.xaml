@@ -233,6 +233,26 @@
                                 </StackPanel>
                             </Border>
 
+                            <TextBlock Text="输入模式" Style="{StaticResource SectionHeader}"/>
+                            <Border Style="{StaticResource SettingsCard}">
+                                <StackPanel>
+                                    <RadioButton x:Name="InputModeClipboard" 
+                                                 Content="剪贴板粘贴 (推荐)" 
+                                                 IsChecked="True"
+                                                 GroupName="InputMode"
+                                                 FontSize="13"
+                                                 Checked="InputMode_Changed"/>
+                                    <TextBlock Text="兼容性好，支持格式化文本。" FontSize="11" Foreground="#8E8E93" Margin="24,2,0,8"/>
+                                    
+                                    <RadioButton x:Name="InputModeTyping" 
+                                                 Content="模拟打字" 
+                                                 GroupName="InputMode"
+                                                 FontSize="13"
+                                                 Checked="InputMode_Changed"/>
+                                    <TextBlock Text="不占用剪贴板，支持同花顺等高权限软件。" FontSize="11" Foreground="#8E8E93" Margin="24,2,0,0"/>
+                                </StackPanel>
+                            </Border>
+
                             <TextBlock Text="音频" Style="{StaticResource SectionHeader}"/>
                             <Border Style="{StaticResource SettingsCard}">
                                 <TextBlock x:Name="DeviceLabel" Text="正在检测设备..." FontSize="13" Foreground="#1C1C1E"/>
@@ -274,7 +294,7 @@
                                 <TextBlock Text="V" Foreground="White" FontSize="32" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <TextBlock Text="VoiceSnap 语闪" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" Foreground="#1C1C1E"/>
-                            <TextBlock x:Name="VersionLabel" Text="版本 1.3.0" FontSize="13" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,4,0,24"/>
+                            <TextBlock x:Name="VersionLabel" Text="版本 1.3.2" FontSize="13" Foreground="#8E8E93" HorizontalAlignment="Center" Margin="0,4,0,24"/>
                             
                             <Border Style="{StaticResource SettingsCard}">
                                 <StackPanel>

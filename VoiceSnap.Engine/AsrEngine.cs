@@ -61,7 +61,8 @@ namespace VoiceSnap.Engine
         {
             if (_recognizer == null) throw new InvalidOperationException("引擎未初始化");
 
-            var stream = _recognizer.CreateStream();
+            // 使用 using 确保 stream 资源被正确释放，避免内存泄漏
+            using var stream = _recognizer.CreateStream();
             stream.AcceptWaveform(sampleRate, samples);
             _recognizer.Decode(stream);
             

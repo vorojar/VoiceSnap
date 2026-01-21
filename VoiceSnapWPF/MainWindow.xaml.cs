@@ -30,6 +30,7 @@ namespace VoiceSnap
         public bool AutoHide { get; set; } = true;
         public string ModelDownloadUrl { get; set; } = "http://www.maikami.com/voicesnap/sensevoice.zip";
         public string FallbackModelDownloadUrl { get; set; } = "https://modelscope.cn/models/sherpa-onnx/sherpa-onnx-sense-voice-zh-en-ja-ko-yue/resolve/master/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2";
+        public int InputMode { get; set; } = 0; // 0: Clipboard, 1: Typing
     }
 
     public partial class MainWindow : Window
@@ -37,16 +38,84 @@ namespace VoiceSnap
         // Win32 API 用于检测键盘状态
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
+        
+        // Win32 API 用于模拟按键（不依赖消息循环）
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        
         private const int VK_CONTROL = 0x11;
         private const int VK_LCONTROL = 0xA2;
         private const int VK_RCONTROL = 0xA3;
-        
-        // Python 后端服务
-        private Process? _pythonProcess;
-        private readonly HttpClient _httpClient;
-        private const string BackendUrl = "http://127.0.0.1:8765";
-        private bool _backendReady = false;
+        private const byte VK_V = 0x56;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint KEYEVENTF_UNICODE = 0x0004;
 
+        // Win32 API for Clipboard
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool OpenClipboard(IntPtr hWndNewOwner);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool CloseClipboard();
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool EmptyClipboard();
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
+        private const uint CF_UNICODETEXT = 13;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GlobalLock(IntPtr hMem);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GlobalUnlock(IntPtr hMem);
+        private const uint GMEM_MOVEABLE = 0x0002;
+
+        // Win32 API for SendInput
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct INPUT
+        {
+            public uint type;
+            public InputUnion u;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        struct InputUnion
+        {
+            [FieldOffset(0)] public MOUSEINPUT mi;
+            [FieldOffset(0)] public KEYBDINPUT ki;
+            [FieldOffset(0)] public HARDWAREINPUT hi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+        [StructLayout(LayoutKind.Sequential)]
+        struct HARDWAREINPUT { public uint uMsg; public ushort wParamL; public ushort wParamH; }
+
+        private const int INPUT_KEYBOARD = 1;
+
+        // Window Styles
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOPMOST = 0x00000008;
+        
+        private readonly HttpClient _httpClient;
+        
         // 浮动指示器
         private readonly FloatingIndicator _indicator;
         
@@ -59,8 +128,12 @@ namespace VoiceSnap
 
         // 状态
         private bool _hotkeyActive = false;
+        private bool _isHotkeyCombination = false;
+        private DateTime _hotkeyPressTime = DateTime.MinValue;
         private bool _isRecording = false;
         private System.Windows.Threading.DispatcherTimer? _ctrlStateTimer;
+        private System.Windows.Threading.DispatcherTimer? _idleGcTimer;
+        private DateTime _lastActivityTime = DateTime.Now;
         
         // 自定义快捷键
         private int _currentHotkeyVK = 0x11; // 默认 VK_CONTROL
@@ -74,6 +147,10 @@ namespace VoiceSnap
 
         public MainWindow()
         {
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(600) }; // 增加超时时间用于大文件下载
+            _indicator = new FloatingIndicator();
+            _audioRecorder = new AudioRecorder();
+
             try
             {
                 App.Log("MainWindow 启动中...");
@@ -81,11 +158,7 @@ namespace VoiceSnap
 
                 // 加载配置
                 LoadConfig();
-
-                _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(600) }; // 增加超时时间用于大文件下载
-                _indicator = new FloatingIndicator();
                 
-                _audioRecorder = new AudioRecorder();
                 _audioRecorder.VolumeUpdated += volume =>
                 {
                     Dispatcher.BeginInvoke(() => _indicator?.UpdateVolume(volume));
@@ -102,6 +175,9 @@ namespace VoiceSnap
 
                 // 启动永久状态轮询
                 StartPermanentCtrlTimer();
+
+                // 启动空闲内存回收定时器
+                StartIdleGcTimer();
 
                 // 尝试初始化原生引擎 (如果存在模型)
                 InitializeNativeEngine();
@@ -127,6 +203,12 @@ namespace VoiceSnap
                 // 后台检查更新
                 _ = CheckForUpdateAsync();
 
+                // 确保指示器窗口不偷焦点
+                var helper = new System.Windows.Interop.WindowInteropHelper(_indicator);
+                IntPtr hWnd = helper.Handle;
+                int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+                SetWindowLong(hWnd, GWL_EXSTYLE, exStyle | WS_EX_NOACTIVATE | WS_EX_TOPMOST);
+
                 App.Log("MainWindow 初始化完成");
             }
             catch (Exception ex)
@@ -143,30 +225,123 @@ namespace VoiceSnap
             };
             _ctrlStateTimer.Tick += (s, e) =>
             {
-                if (!_backendReady || _isRecordingHotkey) return;
+                if (!_useNativeEngine || _isRecordingHotkey) return;
 
                 // 物理检测自定义按键状态
                 bool isKeyDown = (GetAsyncKeyState(_currentHotkeyVK) & 0x8000) != 0;
 
-                if (isKeyDown && !_hotkeyActive)
+                if (isKeyDown)
                 {
-                    _hotkeyActive = true;
-                    StartRecording();
+                    if (!_hotkeyActive)
+                    {
+                        // 刚按下
+                        _hotkeyActive = true;
+                        _isHotkeyCombination = false;
+                        _hotkeyPressTime = DateTime.Now;
+                    }
+                    else
+                    {
+                        // 持续按住中，检测是否有其他键按下（组合键判定）
+                        if (!_isHotkeyCombination && IsAnyOtherKeyPressed())
+                        {
+                            _isHotkeyCombination = true;
+                            if (_isRecording)
+                            {
+                                StopRecording(cancel: true);
+                            }
+                        }
+
+                        // 如果按住超过 300ms 且不是组合键，且还没开始录音，则开始录音
+                        if (!_isRecording && !_isHotkeyCombination && (DateTime.Now - _hotkeyPressTime).TotalMilliseconds > 300)
+                        {
+                            StartRecording();
+                        }
+                    }
                 }
-                else if (!isKeyDown && _hotkeyActive)
+                else if (_hotkeyActive)
                 {
+                    // 刚松开
                     _hotkeyActive = false;
-                    StopRecording();
+                    if (_isRecording)
+                    {
+                        StopRecording(cancel: _isHotkeyCombination);
+                    }
                 }
             };
             _ctrlStateTimer.Start();
-            App.Log("Ctrl 状态轮询定时器已启动");
+            App.Log("Ctrl 状态轮询定时器已启动 (支持组合键避让)");
+        }
+
+        /// <summary>
+        /// 检测是否有除当前热键以外的按键被按下
+        /// </summary>
+        private bool IsAnyOtherKeyPressed()
+        {
+            // 只检查有意义的组合键：A-Z, 0-9, 以及常用功能键
+            // 这样可以避开系统内部的一些虚拟按键干扰
+            int[] checkKeys = {
+                0x08, 0x09, 0x0D, 0x1B, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2C, 0x2D, 0x2E,
+                0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39,
+                0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A,
+                0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x7B,
+                0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF, 0xC0, 0xDB, 0xDC, 0xDD, 0xDE
+            };
+
+            foreach (int i in checkKeys)
+            {
+                if (i == _currentHotkeyVK) continue;
+                if ((GetAsyncKeyState(i) & 0x8000) != 0) return true;
+            }
+            
+            // 还要检查其他的修饰键，如果热键是 Ctrl，那么按下 Alt 或 Shift 也算组合键
+            int[] ctrlKeys = { 0x11, 0xA2, 0xA3 };
+            int[] altKeys = { 0x12, 0xA4, 0xA5 };
+            int[] shiftKeys = { 0x10, 0xA0, 0xA1 };
+
+            if (!ctrlKeys.Contains(_currentHotkeyVK)) {
+                if (ctrlKeys.Any(k => (GetAsyncKeyState(k) & 0x8000) != 0)) return true;
+            }
+            if (!altKeys.Contains(_currentHotkeyVK)) {
+                if (altKeys.Any(k => (GetAsyncKeyState(k) & 0x8000) != 0)) return true;
+            }
+            if (!shiftKeys.Contains(_currentHotkeyVK)) {
+                if (shiftKeys.Any(k => (GetAsyncKeyState(k) & 0x8000) != 0)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 启动空闲内存回收定时器，30秒无操作后静默释放内存
+        /// </summary>
+        private void StartIdleGcTimer()
+        {
+            _idleGcTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(10) // 每 10 秒检查一次
+            };
+            _idleGcTimer.Tick += (s, e) =>
+            {
+                // 30 秒无活动时静默触发内存回收
+                if ((DateTime.Now - _lastActivityTime).TotalSeconds > 30)
+                {
+                    _lastActivityTime = DateTime.Now; // 重置，避免连续触发
+                    Task.Run(() =>
+                    {
+                        GC.Collect(2, GCCollectionMode.Optimized, blocking: false);
+                        GC.WaitForPendingFinalizers();
+                        // 静默执行，不记录日志
+                    });
+                }
+            };
+            _idleGcTimer.Start();
         }
 
         private void StartRecording()
         {
             if (_isRecording) return;
             _isRecording = true;
+            _lastActivityTime = DateTime.Now; // 更新活动时间，用于空闲 GC 计时
 
             Dispatcher.Invoke(() => {
                 _indicator?.ShowIndicator(FloatingIndicator.IndicatorStatus.Recording);
@@ -186,10 +361,21 @@ namespace VoiceSnap
             });
         }
 
-        private async void StopRecording()
+        private void StopRecording(bool cancel = false)
         {
             if (!_isRecording) return;
             _isRecording = false;
+
+            if (cancel)
+            {
+                _audioRecorder.StopRecordingRaw(); // 停止并丢弃数据
+                Dispatcher.Invoke(() => {
+                    _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                    UpdateRecordingStatus("✓ 已取消", "Orange");
+                    if (AutoHideCheckbox.IsChecked == true) _indicator?.DelayedHide(1000);
+                });
+                return;
+            }
 
             Dispatcher.Invoke(() => {
                 UpdateRecordingStatus("⌛ 正在识别...", "Orange");
@@ -221,9 +407,7 @@ namespace VoiceSnap
                         if (!string.IsNullOrEmpty(text))
                         {
                             Dispatcher.Invoke(() => {
-                                Clipboard.SetText(text);
-                                System.Windows.Forms.SendKeys.SendWait("^v");
-                                
+                                SafePasteText(text);
                                 _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
                                 UpdateRecordingStatus("✓ 已输入 (原生)", "Green");
                             });
@@ -231,45 +415,13 @@ namespace VoiceSnap
                     }
                     return;
                 }
-
-                byte[] audioData = _audioRecorder.StopRecording();
-                if (audioData == null || audioData.Length < 100)
-                {
-                    Dispatcher.Invoke(() => {
-                        _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                        if (AutoHideCheckbox.IsChecked == true)
-                        {
-                            _indicator?.DelayedHide(1000);
-                        }
-                        UpdateRecordingStatus("✓ 已就绪", "Green");
-                    });
-                    return;
-                }
-
-                // 发送到后端识别
-                var content = new ByteArrayContent(audioData);
-                var response = await _httpClient.PostAsync($"{BackendUrl}/recognize", content);
                 
-                if (response.IsSuccessStatusCode)
-                {
-                    var resultJson = await response.Content.ReadAsStringAsync();
-                    var result = JsonSerializer.Deserialize<RecognitionResponse>(resultJson);
-                    
-                    if (!string.IsNullOrEmpty(result?.text))
-                    {
-                        string text = result.text.Trim();
-                        if (text.Length > 0)
-                        {
-                            Dispatcher.Invoke(() => {
-                                Clipboard.SetText(text);
-                                System.Windows.Forms.SendKeys.SendWait("^v");
-                                
-                                _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                                UpdateRecordingStatus("✓ 已输入", "Green");
-                            });
-                        }
-                    }
-                }
+                // 如果没有原生引擎，停止录制并重置状态
+                _audioRecorder.StopRecording();
+                Dispatcher.Invoke(() => {
+                    _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                    UpdateRecordingStatus("✓ 引擎未就绪", "Red");
+                });
             }
             catch (Exception ex)
             {
@@ -321,8 +473,6 @@ namespace VoiceSnap
                     App.Log("原生引擎初始化成功");
                     
                     Dispatcher.Invoke(() => {
-                        _backendReady = true; // 允许热键触发
-                        
                         if (_isOnboarding)
                         {
                             System.Media.SystemSounds.Asterisk.Play();
@@ -354,18 +504,10 @@ namespace VoiceSnap
                 catch (Exception ex)
                 {
                     App.LogError("原生引擎初始化失败", ex);
-                    if (!_isOnboarding)
-                    {
-                        // 原生失败且不在 Onboarding 模式，尝试回退到 Python
-                        _ = StartPythonBackend();
-                    }
-                    else
-                    {
-                        Dispatcher.Invoke(() => {
-                            InitStatusLabel.Text = "引擎加载失败";
-                            InitDetailLabel.Text = ex.Message;
-                        });
-                    }
+                    Dispatcher.Invoke(() => {
+                        InitStatusLabel.Text = "引擎加载失败";
+                        InitDetailLabel.Text = ex.Message;
+                    });
                 }
             });
         }
@@ -556,90 +698,148 @@ namespace VoiceSnap
             return floats;
         }
 
-        private async Task StartPythonBackend()
+        /// <summary>
+        /// 使用 Win32 API 写入剪贴板，比 WPF 原生更稳定
+        /// </summary>
+        private bool Win32SetClipboard(string text)
         {
-            UpdateStatus("正在启动后端...", "Orange");
-            Dispatcher.Invoke(() => {
-                _indicator?.ShowIndicator(FloatingIndicator.IndicatorStatus.Loading);
-            });
-            try
+            for (int i = 0; i < 10; i++)
             {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                string pythonScript = Path.Combine(baseDir, "asr_service.py");
-                
-                if (!File.Exists(pythonScript))
+                if (OpenClipboard(IntPtr.Zero))
                 {
-                    pythonScript = Path.Combine(baseDir, "PythonBackend", "asr_service.py");
-                }
-
-                if (!File.Exists(pythonScript))
-                {
-                    App.Log("未找到 Python 脚本，使用模拟模式");
-                    OnBackendReady();
-                    return;
-                }
-
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "python",
-                    Arguments = $"\"{pythonScript}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    WorkingDirectory = Path.GetDirectoryName(pythonScript)
-                };
-
-                _pythonProcess = new Process { StartInfo = startInfo };
-                _pythonProcess.OutputDataReceived += (s, e) =>
-                {
-                    if (e.Data != null && e.Data.Contains("Backend ready"))
+                    try
                     {
-                        Dispatcher.Invoke(OnBackendReady);
+                        EmptyClipboard();
+                        IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)((text.Length + 1) * 2));
+                        if (hGlobal == IntPtr.Zero) return false;
+
+                        IntPtr lpString = GlobalLock(hGlobal);
+                        if (lpString != IntPtr.Zero)
+                        {
+                            Marshal.Copy(text.ToCharArray(), 0, lpString, text.Length);
+                            Marshal.WriteInt16(lpString, text.Length * 2, 0); // Null terminator
+                            GlobalUnlock(hGlobal);
+                            SetClipboardData(CF_UNICODETEXT, hGlobal);
+                        }
+                        return true;
                     }
-                };
-                
-                _pythonProcess.Start();
-                _pythonProcess.BeginOutputReadLine();
-                
-                await WaitForBackend();
+                    finally
+                    {
+                        CloseClipboard();
+                    }
+                }
+                System.Threading.Thread.Sleep(50);
             }
-            catch (Exception ex)
-            {
-                App.LogError("启动后端失败", ex);
-                OnBackendReady();
-            }
+            return false;
         }
 
-        private async Task WaitForBackend()
+        /// <summary>
+        /// 使用 SendInput 模拟打字，彻底绕过剪贴板
+        /// </summary>
+        private void NativeType(string text)
         {
-            for (int i = 0; i < 60; i++)
+            var inputs = new INPUT[text.Length * 2];
+            for (int i = 0; i < text.Length; i++)
             {
-                try
+                // Key Down
+                inputs[i * 2] = new INPUT
                 {
-                    var response = await _httpClient.GetStringAsync($"{BackendUrl}/health");
-                    if (response.Contains("\"model_loaded\":true"))
+                    type = INPUT_KEYBOARD,
+                    u = new InputUnion
                     {
-                        OnBackendReady();
+                        ki = new KEYBDINPUT
+                        {
+                            wVk = 0,
+                            wScan = text[i],
+                            dwFlags = KEYEVENTF_UNICODE,
+                            dwExtraInfo = IntPtr.Zero
+                        }
+                    }
+                };
+                // Key Up
+                inputs[i * 2 + 1] = new INPUT
+                {
+                    type = INPUT_KEYBOARD,
+                    u = new InputUnion
+                    {
+                        ki = new KEYBDINPUT
+                        {
+                            wVk = 0,
+                            wScan = text[i],
+                            dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP,
+                            dwExtraInfo = IntPtr.Zero
+                        }
+                    }
+                };
+            }
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        /// <summary>
+        /// 安全粘贴：等待用户物理松开按键后再执行，避免冲突
+        /// </summary>
+        private void SafePasteText(string text)
+        {
+            bool useTyping = false;
+            Dispatcher.Invoke(() => useTyping = InputModeTyping.IsChecked == true);
+
+            // 在后台线程执行，避免阻塞 UI
+            Task.Run(() =>
+            {
+                // 1. 等待用户物理松开触发键（最多等 500ms）
+                for (int i = 0; i < 50; i++)
+                {
+                    bool keyDown = (GetAsyncKeyState(_currentHotkeyVK) & 0x8000) != 0;
+                    if (!keyDown) break;
+                    System.Threading.Thread.Sleep(10);
+                }
+                System.Threading.Thread.Sleep(50);
+
+                if (useTyping)
+                {
+                    NativeType(text);
+                }
+                else
+                {
+                    // 2. 写入剪贴板（Win32 原生）
+                    if (!Win32SetClipboard(text))
+                    {
+                        Dispatcher.Invoke(() => UpdateRecordingStatus("✗ 剪贴板占用", "Orange"));
                         return;
                     }
-                }
-                catch { }
-                await Task.Delay(1000);
-            }
-        }
 
-        private void OnBackendReady()
-        {
-            if (_backendReady) return;
-            _backendReady = true;
-            UpdateStatus("✓ 模型已就绪", "Green");
-            Dispatcher.Invoke(() => {
-                _indicator?.ShowIndicator(FloatingIndicator.IndicatorStatus.Ready);
-                if (AutoHideCheckbox.IsChecked == true)
-                {
-                    _indicator?.DelayedHide(2000);
+                    // 3. 发送 Ctrl+V
+                    var inputs = new INPUT[4];
+                    // Ctrl Down
+                    inputs[0] = CreateKeyInput(VK_CONTROL, 0);
+                    // V Down
+                    inputs[1] = CreateKeyInput(VK_V, 0);
+                    // V Up
+                    inputs[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP);
+                    // Ctrl Up
+                    inputs[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP);
+
+                    SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
                 }
             });
+        }
+
+        private INPUT CreateKeyInput(ushort vk, uint flags)
+        {
+            return new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                u = new InputUnion
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = vk,
+                        wScan = 0,
+                        dwFlags = flags,
+                        dwExtraInfo = IntPtr.Zero
+                    }
+                }
+            };
         }
 
         private void LoadIcon()
@@ -752,7 +952,7 @@ namespace VoiceSnap
             {
                 if (text.Contains("录音")) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48)); // Red
                 else if (text.Contains("识别")) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(255, 149, 0)); // Orange
-                else if (_backendReady) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(52, 199, 89)); // Green
+                else if (_useNativeEngine) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(52, 199, 89)); // Green
             });
         }
 
@@ -815,7 +1015,7 @@ namespace VoiceSnap
                 }
                 else
                 {
-                    _indicator?.ShowIndicator(_backendReady ? FloatingIndicator.IndicatorStatus.Ready : FloatingIndicator.IndicatorStatus.Loading);
+                    _indicator?.ShowIndicator(_useNativeEngine ? FloatingIndicator.IndicatorStatus.Ready : FloatingIndicator.IndicatorStatus.Loading);
                 }
             }
         }
@@ -825,6 +1025,14 @@ namespace VoiceSnap
             if (IsLoaded)
             {
                 SetStartup(StartupCheckbox.IsChecked == true);
+            }
+        }
+
+        private void InputMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (IsLoaded)
+            {
+                SaveConfig();
             }
         }
 
@@ -940,6 +1148,8 @@ namespace VoiceSnap
                         AutoHideCheckbox.IsChecked = config.AutoHide;
                         _modelDownloadUrl = config.ModelDownloadUrl ?? _modelDownloadUrl;
                         _fallbackModelDownloadUrl = config.FallbackModelDownloadUrl ?? _fallbackModelDownloadUrl;
+                        if (config.InputMode == 1) InputModeTyping.IsChecked = true;
+                        else InputModeClipboard.IsChecked = true;
                     }
                 }
                 else
@@ -963,7 +1173,8 @@ namespace VoiceSnap
                     HotkeyVK = _currentHotkeyVK,
                     AutoHide = AutoHideCheckbox.IsChecked ?? true,
                     ModelDownloadUrl = _modelDownloadUrl,
-                    FallbackModelDownloadUrl = _fallbackModelDownloadUrl
+                    FallbackModelDownloadUrl = _fallbackModelDownloadUrl,
+                    InputMode = InputModeTyping.IsChecked == true ? 1 : 0
                 };
                 string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json);
@@ -978,10 +1189,6 @@ namespace VoiceSnap
         {
             _isExiting = true;
             _ctrlStateTimer?.Stop();
-            if (_pythonProcess != null && !_pythonProcess.HasExited)
-            {
-                try { _pythonProcess.Kill(); } catch { }
-            }
             _indicator?.Close();
             TrayIcon.Dispose();
             Application.Current.Shutdown();

@@ -2,46 +2,60 @@
 
 > 长按说话，松手即输 —— 离线 · 极速 · 精准
 
-## 🚀 为什么选择 C# WPF？
+## ✨ 版本历史
 
-| 对比 | Python PyQt5 | C# WPF (本版本) |
-|-----|--------------|-----------------|
-| **启动速度** | 3-5 秒 | **0.1-0.3 秒** ⚡ |
-| **打包体积** | 500MB+ | **68 MB** (含 .NET 运行时) |
-| **动画性能** | 较好 | **原生 GPU 加速** |
-| **用户安装** | 需要 Python | **无需安装任何东西** ✅ |
+### v1.3.2 (2026-01-21)
+- 🚀 **彻底移除 Python 依赖**：实现纯原生 C# + C++ 引擎，安装包更精简。
+- 🛠️ **原生剪贴板重构**：引入 Win32 API 写入剪贴板，彻底解决 `CLIPBRD_E_CANT_OPEN` 导致的锁死。
+- ⌨️ **新增“模拟打字”模式**：支持直接发送 Unicode 字符，解决同花顺、交易终端等软件无法粘贴的问题。
+- 🎯 **焦点保护机制**：引入 `WS_EX_NOACTIVATE`，确保指示器窗口永远不会抢夺当前输入框焦点。
+- 📦 **自动集成运行库**：打包时自动提取并集成 VC++ Redistributable DLL，真正实现开箱即用。
 
-## 📦 发布版本
+### v1.3.1 (2026-01-02)
+- 🔧 修复剪贴板偶发锁定导致的错误弹窗
+- 🔧 修复 Ctrl 键与粘贴操作冲突导致的偶发卡住
+- 🔧 修复 ONNX Stream 内存泄漏问题
+- ⚡ 新增安全粘贴机制：等待用户松开按键后再执行
+- ⚡ 新增空闲 30 秒自动内存回收机制
+- 📉 优化长时间使用的内存占用
+- 📉 移除不必要的日志输出，减少日志文件增长
 
-运行 `build.bat` 后，`publish\` 目录包含：
+### v1.3.0
+- 🚀 新增 DirectML 硬件加速 (自动检测 GPU/CPU)
+- 🔄 新增应用内自动更新功能
+- 🎤 新增 VAD 能量检测，静音时跳过识别
+- 🔌 新增音频设备热插拔支持
+- 🌐 新增双地址模型下载备份机制
 
-```
-publish/
-├── VoiceSnap.exe         # 主程序 (68 MB, 包含 .NET 运行时)
-└── PythonBackend/
-    └── asr_service.py    # ASR 服务
-```
+## 🚀 特性亮点
 
-**用户双击 `VoiceSnap.exe` 即可运行！**
-
-> ⚠️ 注意：用户仍需安装 Python 和 FunASR 依赖来运行 ASR 服务
+| 特性 | 说明 |
+|-----|------|
+| **启动速度** | 0.1-0.3 秒 ⚡ |
+| **打包体积** | ~80 MB (自包含运行时) |
+| **运行模式** | 完全离线，无需网络，**彻底移除 Python 依赖** |
+| **输入模式** | 支持 **剪贴板粘贴** 与 **模拟打字** 双模式 |
+| **硬件加速** | 自动检测 DirectML GPU 加速 |
+| **用户安装** | 双击即用，内置 VC++ 运行库，无需安装任何依赖 ✅ |
 
 ## 🏗️ 架构设计
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  C# WPF UI (极速启动 0.1秒)                      │
-│  • 浮动指示器 (半透明胶囊)                        │
-│  • 系统托盘                                      │
-│  • 全局快捷键监听 (H.Hooks)                      │
+│  C# WPF UI (极速启动)                            │
+│  • 浮动指示器 (半透明胶囊 + 声纹动画)              │
+│  • 系统托盘常驻                                  │
+│  • 全局快捷键监听 (自定义按键)                    │
+│  • 剪贴板重试机制                                │
+│  • 空闲内存自动回收                              │
 └───────────────────┬─────────────────────────────┘
-                    │ HTTP (localhost:8765)
+                    │ 直接调用
                     ▼
 ┌─────────────────────────────────────────────────┐
-│  Python FastAPI 后端                             │
-│  • FunASR 模型加载                               │
-│  • 录音 (sounddevice)                           │
-│  • 语音识别                                      │
+│  VoiceSnap.Engine (原生 ONNX Runtime)            │
+│  • SherpaOnnx SenseVoice 模型                   │
+│  • DirectML GPU 加速 / CPU 回退                  │
+│  • 16kHz 单声道 PCM 输入                         │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -49,9 +63,8 @@ publish/
 
 ### 环境要求
 
-- Windows 10/11
+- Windows 10/11 (x64)
 - .NET 8.0 SDK ([下载](https://dotnet.microsoft.com/download/dotnet/8.0))
-- Python 3.9+ (已安装 FunASR 依赖)
 
 ### 快速开始
 
@@ -63,52 +76,54 @@ dotnet restore
 dotnet run
 
 # 3. 编译发布版
-build.bat
+dotnet publish -c Release -o publish
 ```
 
 ## 📁 项目结构
 
 ```
-VoiceSnapWPF/
-├── VoiceSnap.csproj          # 项目文件
-├── App.xaml                  # 应用入口
-├── MainWindow.xaml           # 主窗口 (设置界面)
-├── MainWindow.xaml.cs        # 主窗口逻辑
-├── FloatingIndicator.xaml    # 浮动指示器
-├── FloatingIndicator.xaml.cs # 指示器动画逻辑
-├── Assets/
-│   └── icon.ico              # 应用图标
-├── PythonBackend/
-│   └── asr_service.py        # ASR 服务 API
-├── publish/                  # 发布输出目录
-├── build.bat                 # 编译脚本
-└── README.md                 # 本文件
+Fun-ASR/
+├── VoiceSnapWPF/                 # 主应用项目
+│   ├── VoiceSnap.csproj          # 项目文件
+│   ├── App.xaml                  # 应用入口
+│   ├── MainWindow.xaml           # 主窗口 (设置界面)
+│   ├── MainWindow.xaml.cs        # 主窗口逻辑
+│   ├── FloatingIndicator.xaml    # 浮动指示器
+│   ├── AudioRecorder.cs          # 音频录制 (NAudio)
+│   ├── Assets/
+│   │   └── icon.ico              # 应用图标
+│   └── publish/                  # 发布输出目录
+│
+├── VoiceSnap.Engine/             # 原生识别引擎
+│   └── AsrEngine.cs              # ONNX 推理封装
+│
+└── VoiceSnap_Release/            # 发布版本
+    ├── VoiceSnap.exe             # 可执行文件
+    └── version.json              # 版本信息 (用于自动更新)
 ```
-
-## 🔌 API 端点
-
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/health` | GET | 健康检查 |
-| `/start_recording` | POST | 开始录音 |
-| `/stop_recording` | POST | 停止录音并识别 |
-| `/volume` | GET | 获取当前音量 (0-1) |
 
 ## 🎯 使用方法
 
-1. 启动程序后，指示器显示 🔵 "加载中"
-2. 后端就绪后显示 🟢 "按住Ctrl说话"
-3. 在任意输入框中长按 **Ctrl** 键
+1. 首次启动自动下载语音模型 (~200MB)
+2. 加载完成后，指示器显示 🟢 "长按 Ctrl 说话"
+3. 在任意输入框中长按 **Ctrl** 键 (可在设置中更改)
 4. 指示器变 🔴 红，显示声纹波形
-5. 松开 Ctrl，指示器变 🟠 "识别中"
-6. 识别完成后自动输入文字到光标位置
+5. 松开按键，指示器变 🟠 "识别中"
+6. 识别完成后自动粘贴文字到光标位置
+
+## ⚙️ 设置选项
+
+- **快捷键**: 支持自定义触发按键 (Ctrl/Alt/Shift/任意键)
+- **自动隐藏**: 识别完成后自动隐藏指示器
+- **开机启动**: 开机自动运行
+- **检查更新**: 应用内一键更新
 
 ## 📦 依赖库
 
-- [H.Hooks](https://github.com/HavenDV/H.Hooks) - 全局键盘钩子
+- [NAudio](https://github.com/naudio/NAudio) - 音频录制
+- [SherpaOnnx](https://github.com/k2-fsa/sherpa-onnx) - 语音识别引擎
 - [Hardcodet.NotifyIcon.Wpf](https://github.com/hardcodet/wpf-notifyicon) - 系统托盘
-- FastAPI / Uvicorn - Python 后端框架
-- FunASR - 语音识别模型
+- ONNX Runtime + DirectML - 硬件加速推理
 
 ## 📄 许可证
 

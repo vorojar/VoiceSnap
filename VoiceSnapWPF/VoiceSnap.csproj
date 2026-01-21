@@ -10,8 +10,8 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyName>VoiceSnap</AssemblyName>
     <RootNamespace>VoiceSnap</RootNamespace>
-    <AssemblyVersion>1.3.0.0</AssemblyVersion>
-    <FileVersion>1.3.0.0</FileVersion>
+    <AssemblyVersion>1.3.2.0</AssemblyVersion>
+    <FileVersion>1.3.2.0</FileVersion>
     <Product>VoiceSnap 语闪</Product>
     <Company>VoiceSnap</Company>
     <Description>长按说话，松手即输 - 极速离线语音输入</Description>
@@ -41,6 +41,10 @@
 
   <ItemGroup>
     <None Update="models\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="redist\*.dll">
+      <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

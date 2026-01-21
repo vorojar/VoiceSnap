@@ -15,25 +15,23 @@ echo [1/5] 清理旧的发布目录...
 if exist "%PUBLISH_DIR%" rd /s /q "%PUBLISH_DIR%"
 mkdir "%PUBLISH_DIR%"
 
+echo [1.5/5] 准备 VC++ 运行库...
+if not exist "redist" mkdir "redist"
+copy /Y "C:\Windows\System32\vcruntime140.dll" "redist\" >nul
+copy /Y "C:\Windows\System32\msvcp140.dll" "redist\" >nul
+copy /Y "C:\Windows\System32\vcruntime140_1.dll" "redist\" >nul
+
 echo [2/5] 编译 C# 程序 (Self-Contained)...
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o "%PUBLISH_DIR%"
 if errorlevel 1 goto :error
 
-echo [3/5] 复制 Python 脚本...
-copy /Y "PythonBackend\asr_service.py" "%PUBLISH_DIR%\" >nul
-
-echo [4/5] 复制模型和代码文件...
-:: 复制 model.py
-copy /Y "%FUN_ASR_ROOT%\model.py" "%PUBLISH_DIR%\" >nul
-
+echo [3/5] 复制模型目录...
 :: 图标已作为资源嵌入 VoiceSnap.exe，无需复制 Assets 文件夹
-
-:: 复制模型目录
 echo 正在复制模型目录 (这可能需要一些时间)...
 if not exist "%PUBLISH_DIR%\models" mkdir "%PUBLISH_DIR%\models"
 xcopy /E /I /Q /Y "%FUN_ASR_ROOT%\models\Fun-ASR-Nano-2512" "%PUBLISH_DIR%\models\Fun-ASR-Nano-2512" >nul
 
-echo [5/5] 清理不必要的文件...
+echo [4/5] 清理不必要的文件...
 :: 删除调试符号
 if exist "%PUBLISH_DIR%\VoiceSnap.pdb" del /F /Q "%PUBLISH_DIR%\VoiceSnap.pdb"
 
@@ -46,10 +44,7 @@ if exist "%MODEL_PATH%" (
     if exist "%MODEL_PATH%\images" rd /s /q "%MODEL_PATH%\images"
 )
 
-:: 删除所有 __pycache__
-powershell -Command "Get-ChildItem -Path '%PUBLISH_DIR%' -Filter '__pycache__' -Recurse | Remove-Item -Force -Recurse"
-
-echo [6/6] 创建说明文件...
+echo [5/5] 创建说明文件...
 (
 echo ========================================
 echo   VoiceSnap 语闪 - 使用说明
@@ -65,14 +60,11 @@ echo 4. 松开 Ctrl 键，文字自动输入
 echo.
 echo 【系统要求】
 echo - Windows 10/11 64位
-echo - Python 3.9+ (已安装到 PATH^)
-echo - 需要安装: pip install fastapi uvicorn funasr sounddevice soundfile torch
 echo.
 echo 【文件说明】
-echo - VoiceSnap.exe : 主程序
-echo - asr_service.py : ASR 服务
-echo - model.py : 模型代码
-echo - models/ : 模型文件
+echo - VoiceSnap.exe : 主程序 (已内置核心引擎)
+echo - msvcp140.dll/vcruntime140.dll : 必要的系统运行库
+echo - models/ : 离线语音模型文件
 echo.
 ) > "%PUBLISH_DIR%\使用说明.txt"
 
@@ -87,12 +79,6 @@ echo.
 :: 计算目录大小
 for /f "tokens=3" %%a in ('dir "%PUBLISH_DIR%" /s /-c ^| findstr "个文件"') do set SIZE=%%a
 echo 总大小: 约 %SIZE:~0,-6% MB
-
-echo.
-echo 用户只需要:
-echo 1. 安装 Python 3.9+ (确保在 PATH 中)
-echo 2. pip install fastapi uvicorn funasr sounddevice soundfile torch
-echo 3. 双击 VoiceSnap.exe
 echo.
 pause
 exit /b 0

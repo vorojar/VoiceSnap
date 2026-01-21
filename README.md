@@ -1,130 +1,130 @@
-# VoiceSnap 语闪
+# VoiceSnap 语闪 - C# WPF 版本
 
-<div align="center">
+> 长按说话，松手即输 —— 离线 · 极速 · 精准
 
-**极速离线语音输入工具**
+## ✨ 版本历史
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-brightgreen.svg)]()
-[![.NET](https://img.shields.io/badge/.NET-8.0-purple.svg)]()
+### v1.3.2 (2026-01-21)
+- 🚀 **彻底移除 Python 依赖**：实现纯原生 C# + C++ 引擎，安装包更精简。
+- 🛠️ **原生剪贴板重构**：引入 Win32 API 写入剪贴板，彻底解决 `CLIPBRD_E_CANT_OPEN` 导致的锁死。
+- ⌨️ **新增“模拟打字”模式**：支持直接发送 Unicode 字符，解决同花顺、交易终端等软件无法粘贴的问题。
+- 🎯 **焦点保护机制**：引入 `WS_EX_NOACTIVATE`，确保指示器窗口永远不会抢夺当前输入框焦点。
+- 📦 **自动集成运行库**：打包时自动提取并集成 VC++ Redistributable DLL，真正实现开箱即用。
 
-[English](#english) | [简体中文](#简体中文)
+### v1.3.1 (2026-01-02)
+- 🔧 修复剪贴板偶发锁定导致的错误弹窗
+- 🔧 修复 Ctrl 键与粘贴操作冲突导致的偶发卡住
+- 🔧 修复 ONNX Stream 内存泄漏问题
+- ⚡ 新增安全粘贴机制：等待用户松开按键后再执行
+- ⚡ 新增空闲 30 秒自动内存回收机制
+- 📉 优化长时间使用的内存占用
+- 📉 移除不必要的日志输出，减少日志文件增长
 
-![VoiceSnap Screenshot](screenshot.png)
+### v1.3.0
+- 🚀 新增 DirectML 硬件加速 (自动检测 GPU/CPU)
+- 🔄 新增应用内自动更新功能
+- 🎤 新增 VAD 能量检测，静音时跳过识别
+- 🔌 新增音频设备热插拔支持
+- 🌐 新增双地址模型下载备份机制
 
-</div>
+## 🚀 特性亮点
 
----
+| 特性 | 说明 |
+|-----|------|
+| **启动速度** | 0.1-0.3 秒 ⚡ |
+| **打包体积** | ~80 MB (自包含运行时) |
+| **运行模式** | 完全离线，无需网络，**彻底移除 Python 依赖** |
+| **输入模式** | 支持 **剪贴板粘贴** 与 **模拟打字** 双模式 |
+| **硬件加速** | 自动检测 DirectML GPU 加速 |
+| **用户安装** | 双击即用，内置 VC++ 运行库，无需安装任何依赖 ✅ |
 
-<a name="简体中文"></a>
+## 🏗️ 架构设计
 
-## 🌟 简介
+```
+┌─────────────────────────────────────────────────┐
+│  C# WPF UI (极速启动)                            │
+│  • 浮动指示器 (半透明胶囊 + 声纹动画)              │
+│  • 系统托盘常驻                                  │
+│  • 全局快捷键监听 (自定义按键)                    │
+│  • 剪贴板重试机制                                │
+│  • 空闲内存自动回收                              │
+└───────────────────┬─────────────────────────────┘
+                    │ 直接调用
+                    ▼
+┌─────────────────────────────────────────────────┐
+│  VoiceSnap.Engine (原生 ONNX Runtime)            │
+│  • SherpaOnnx SenseVoice 模型                   │
+│  • DirectML GPU 加速 / CPU 回退                  │
+│  • 16kHz 单声道 PCM 输入                         │
+└─────────────────────────────────────────────────┘
+```
 
-VoiceSnap 语闪是一款基于 **Sherpa-ONNX** 和 **SenseVoice** 构建的高性能离线语音输入软件。它完全运行在本地，无需联网，保护您的隐私，并且响应速度极快。
+## 🛠️ 开发环境
 
-## ✨ 核心特性
+### 环境要求
 
-| 特性 | 描述 |
-|------|------|
-| ⚡ **极速响应** | 基于 C# 原生开发，启动仅需 0.1 秒，内存占用低 |
-| 🔒 **完全离线** | 内置 SenseVoice 高精度大模型，数据不出本地 |
-| 🎯 **精准识别** | 支持中、英、日、韩、粤语混合识别，自动添加标点 |
-| 🎈 **极简交互** | 独特的「长按说话，松手即输」模式，不打断工作流 |
+- Windows 10/11 (x64)
+- .NET 8.0 SDK ([下载](https://dotnet.microsoft.com/download/dotnet/8.0))
 
-## 📥 下载安装
+### 快速开始
 
-1. 从 [Releases](../../releases) 页面下载最新版本
-2. 解压到任意目录
-3. 双击运行 `VoiceSnap.exe`
-4. 首次运行会自动下载模型（约 200MB）
+```bash
+# 1. 还原依赖
+dotnet restore
 
-> **系统要求**: Windows 10 / Windows 11
+# 2. 运行 (开发模式)
+dotnet run
 
-## 🎮 使用方法
+# 3. 编译发布版
+dotnet publish -c Release -o publish
+```
 
-1. **启动软件** - 成功启动后，屏幕右下角会出现一个半透明的胶囊指示器，显示「按住Ctrl说话」
-2. **长按说话** - 在任意可输入文字的地方（微信、Word、浏览器等），按住 **Ctrl** 键不放
-3. **语音输入** - 指示器变红并显示波形时，开始说话
-4. **松手即输** - 说完后松开 Ctrl 键，文字将自动输入到光标位置
+## 📁 项目结构
 
-## ⚙️ 设置说明
+```
+Fun-ASR/
+├── VoiceSnapWPF/                 # 主应用项目
+│   ├── VoiceSnap.csproj          # 项目文件
+│   ├── App.xaml                  # 应用入口
+│   ├── MainWindow.xaml           # 主窗口 (设置界面)
+│   ├── MainWindow.xaml.cs        # 主窗口逻辑
+│   ├── FloatingIndicator.xaml    # 浮动指示器
+│   ├── AudioRecorder.cs          # 音频录制 (NAudio)
+│   ├── Assets/
+│   │   └── icon.ico              # 应用图标
+│   └── publish/                  # 发布输出目录
+│
+├── VoiceSnap.Engine/             # 原生识别引擎
+│   └── AsrEngine.cs              # ONNX 推理封装
+│
+└── VoiceSnap_Release/            # 发布版本
+    ├── VoiceSnap.exe             # 可执行文件
+    └── version.json              # 版本信息 (用于自动更新)
+```
 
-- **托盘图标**: 在系统托盘区（右下角时间旁）可以找到 VoiceSnap 的图标
-- **右键菜单**: 右键点击托盘图标可以退出软件
-- **左键点击**: 打开设置面板，可以：
-  - 修改触发按键（支持 Ctrl, Alt, Shift, CapsLock 等）
-  - 设置开机自启
-  - 开启/关闭自动隐藏指示器
+## 🎯 使用方法
 
-## ❓ 常见问题
+1. 首次启动自动下载语音模型 (~200MB)
+2. 加载完成后，指示器显示 🟢 "长按 Ctrl 说话"
+3. 在任意输入框中长按 **Ctrl** 键 (可在设置中更改)
+4. 指示器变 🔴 红，显示声纹波形
+5. 松开按键，指示器变 🟠 "识别中"
+6. 识别完成后自动粘贴文字到光标位置
 
-<details>
-<summary><b>Q: 为什么按住 Ctrl 没有反应？</b></summary>
+## ⚙️ 设置选项
 
-请检查指示器状态是否为「按住Ctrl说话」。如果是「加载中」，请稍等。如果软件未启动，请检查托盘区是否有图标。
-</details>
+- **快捷键**: 支持自定义触发按键 (Ctrl/Alt/Shift/任意键)
+- **自动隐藏**: 识别完成后自动隐藏指示器
+- **开机启动**: 开机自动运行
+- **检查更新**: 应用内一键更新
 
-<details>
-<summary><b>Q: 识别准确率不高？</b></summary>
+## 📦 依赖库
 
-请尽量使用清晰的普通话，并靠近麦克风。软件默认使用系统默认录音设备，请在系统声音设置中确认默认麦克风是否正确。
-</details>
+- [NAudio](https://github.com/naudio/NAudio) - 音频录制
+- [SherpaOnnx](https://github.com/k2-fsa/sherpa-onnx) - 语音识别引擎
+- [Hardcodet.NotifyIcon.Wpf](https://github.com/hardcodet/wpf-notifyicon) - 系统托盘
+- ONNX Runtime + DirectML - 硬件加速推理
 
-<details>
-<summary><b>Q: 杀毒软件误报？</b></summary>
+## 📄 许可证
 
-由于软件涉及全局按键监听和模拟键盘输入，可能会被部分杀毒软件误判。本软件完全开源且安全，请放心添加信任。
-</details>
-
-## 🏗️ 技术栈
-
-- **开发框架**: .NET 8 + WPF
-- **语音引擎**: [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
-- **语音模型**: [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) (by FunAudioLLM)
-
-## 📜 开源许可
-
-本项目基于 [MIT License](LICENSE) 开源。
-
----
-
-<a name="english"></a>
-
-## 🌟 Introduction
-
-VoiceSnap is a high-performance offline voice input tool built on **Sherpa-ONNX** and **SenseVoice**. It runs entirely locally, requires no internet connection, protects your privacy, and responds extremely fast.
-
-## ✨ Key Features
-
-| Feature | Description |
-|---------|-------------|
-| ⚡ **Instant Response** | Native C# development, starts in 0.1s with low memory usage |
-| 🔒 **Fully Offline** | Built-in SenseVoice high-precision model, data never leaves your device |
-| 🎯 **Accurate Recognition** | Supports Chinese, English, Japanese, Korean, Cantonese with auto-punctuation |
-| 🎈 **Simple Interaction** | Unique "hold to speak, release to type" mode |
-
-## 📥 Installation
-
-1. Download the latest version from [Releases](../../releases)
-2. Extract to any directory
-3. Run `VoiceSnap.exe`
-4. Models will be downloaded automatically on first run (~200MB)
-
-> **Requirements**: Windows 10 / Windows 11
-
-## 🎮 Usage
-
-1. **Launch** - A floating indicator will appear in the bottom-right corner showing "Hold Ctrl to speak"
-2. **Hold & Speak** - In any text input field, hold the **Ctrl** key
-3. **Voice Input** - When the indicator turns red with waveform, start speaking
-4. **Release to Type** - Release Ctrl when done, text will be typed automatically
-
-## 🏗️ Tech Stack
-
-- **Framework**: .NET 8 + WPF
-- **Speech Engine**: [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx)
-- **Voice Model**: [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) (by FunAudioLLM)
-
-## 📜 License
-
-This project is licensed under the [MIT License](LICENSE).
+MIT License
