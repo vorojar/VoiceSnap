@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -377,65 +378,83 @@ namespace VoiceSnap
                 return;
             }
 
+            // 先在UI线程采集必要数据
+            bool hasVoice = _audioRecorder.HasVoiceActivity();
+            byte[]? rawData = _audioRecorder.StopRecordingRaw();
+            bool autoHide = false;
+            bool useTyping = false;
             Dispatcher.Invoke(() => {
+                autoHide = AutoHideCheckbox.IsChecked == true;
+                useTyping = InputModeTyping.IsChecked == true;
                 UpdateRecordingStatus("⌛ 正在识别...", "Orange");
                 _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Processing);
             });
 
-            try
+            // 全链路异步：识别 + 粘贴 都在后台线程执行，UI绝不阻塞
+            Task.Run(() =>
             {
-                if (_useNativeEngine && _nativeEngine != null)
+                try
                 {
-                    bool hasVoice = _audioRecorder.HasVoiceActivity();
-                    byte[]? rawData = _audioRecorder.StopRecordingRaw();
-
-                    if (!hasVoice)
+                    if (_useNativeEngine && _nativeEngine != null)
                     {
-                        Dispatcher.Invoke(() => {
-                            _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                            UpdateRecordingStatus("✓ 未检测到语音", "Orange");
-                            if (AutoHideCheckbox.IsChecked == true) _indicator?.DelayedHide(1500);
-                        });
+                        if (!hasVoice)
+                        {
+                            Dispatcher.Invoke(() => {
+                                _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                                UpdateRecordingStatus("✓ 未检测到语音", "Orange");
+                                if (autoHide) _indicator?.DelayedHide(1500);
+                            });
+                            return;
+                        }
+
+                        if (rawData != null && rawData.Length > 0)
+                        {
+                            float[] samples = BytesToFloats(rawData);
+                            string text = _nativeEngine.Recognize(samples); // 耗时操作，现在在后台线程
+
+                            if (!string.IsNullOrEmpty(text))
+                            {
+                                SafePasteText(text, useTyping);
+                                Dispatcher.Invoke(() => {
+                                    _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                                    UpdateRecordingStatus("✓ 已输入 (原生)", "Green");
+                                });
+                            }
+                            else
+                            {
+                                Dispatcher.Invoke(() => {
+                                    _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                                    UpdateRecordingStatus("✓ 未识别到内容", "Orange");
+                                });
+                            }
+                        }
                         return;
                     }
 
-                    if (rawData != null && rawData.Length > 0)
-                    {
-                        float[] samples = BytesToFloats(rawData);
-                        string text = _nativeEngine.Recognize(samples);
-                        
-                        if (!string.IsNullOrEmpty(text))
-                        {
-                            Dispatcher.Invoke(() => {
-                                SafePasteText(text);
-                                _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                                UpdateRecordingStatus("✓ 已输入 (原生)", "Green");
-                            });
-                        }
-                    }
-                    return;
+                    // 如果没有原生引擎
+                    Dispatcher.Invoke(() => {
+                        _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                        UpdateRecordingStatus("✓ 引擎未就绪", "Red");
+                    });
                 }
-                
-                // 如果没有原生引擎，停止录制并重置状态
-                _audioRecorder.StopRecording();
-                Dispatcher.Invoke(() => {
-                    _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                    UpdateRecordingStatus("✓ 引擎未就绪", "Red");
-                });
-            }
-            catch (Exception ex)
-            {
-                App.LogError("识别过程出错", ex);
-            }
-            finally
-            {
-                Dispatcher.Invoke(() => {
-                    if (AutoHideCheckbox.IsChecked == true)
-                    {
-                        _indicator?.DelayedHide(2000);
-                    }
-                });
-            }
+                catch (Exception ex)
+                {
+                    App.LogError("识别过程出错", ex);
+                    Dispatcher.Invoke(() => {
+                        _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
+                        UpdateRecordingStatus("✗ 识别出错", "Red");
+                    });
+                }
+                finally
+                {
+                    Dispatcher.Invoke(() => {
+                        if (autoHide)
+                        {
+                            _indicator?.DelayedHide(2000);
+                        }
+                    });
+                }
+            });
         }
 
         private void InitializeNativeEngine()
@@ -777,51 +796,39 @@ namespace VoiceSnap
 
         /// <summary>
         /// 安全粘贴：等待用户物理松开按键后再执行，避免冲突
+        /// 注意：此方法应在后台线程调用
         /// </summary>
-        private void SafePasteText(string text)
+        private void SafePasteText(string text, bool useTyping)
         {
-            bool useTyping = false;
-            Dispatcher.Invoke(() => useTyping = InputModeTyping.IsChecked == true);
-
-            // 在后台线程执行，避免阻塞 UI
-            Task.Run(() =>
+            // 1. 等待用户物理松开触发键（最多等 500ms）
+            for (int i = 0; i < 50; i++)
             {
-                // 1. 等待用户物理松开触发键（最多等 500ms）
-                for (int i = 0; i < 50; i++)
-                {
-                    bool keyDown = (GetAsyncKeyState(_currentHotkeyVK) & 0x8000) != 0;
-                    if (!keyDown) break;
-                    System.Threading.Thread.Sleep(10);
-                }
-                System.Threading.Thread.Sleep(50);
+                if ((GetAsyncKeyState(_currentHotkeyVK) & 0x8000) == 0) break;
+                Thread.Sleep(10);
+            }
+            Thread.Sleep(50);
 
-                if (useTyping)
+            if (useTyping)
+            {
+                NativeType(text);
+            }
+            else
+            {
+                // 2. 写入剪贴板
+                if (!Win32SetClipboard(text))
                 {
-                    NativeType(text);
+                    Dispatcher.Invoke(() => UpdateRecordingStatus("✗ 剪贴板占用", "Orange"));
+                    return;
                 }
-                else
-                {
-                    // 2. 写入剪贴板（Win32 原生）
-                    if (!Win32SetClipboard(text))
-                    {
-                        Dispatcher.Invoke(() => UpdateRecordingStatus("✗ 剪贴板占用", "Orange"));
-                        return;
-                    }
 
-                    // 3. 发送 Ctrl+V
-                    var inputs = new INPUT[4];
-                    // Ctrl Down
-                    inputs[0] = CreateKeyInput(VK_CONTROL, 0);
-                    // V Down
-                    inputs[1] = CreateKeyInput(VK_V, 0);
-                    // V Up
-                    inputs[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP);
-                    // Ctrl Up
-                    inputs[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP);
-
-                    SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
-                }
-            });
+                // 3. 发送 Ctrl+V
+                var inputs = new INPUT[4];
+                inputs[0] = CreateKeyInput(VK_CONTROL, 0);
+                inputs[1] = CreateKeyInput(VK_V, 0);
+                inputs[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP);
+                inputs[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP);
+                SendInput(4, inputs, Marshal.SizeOf(typeof(INPUT)));
+            }
         }
 
         private INPUT CreateKeyInput(ushort vk, uint flags)
