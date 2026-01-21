@@ -22,6 +22,7 @@ using SolidColorBrush = System.Windows.Media.SolidColorBrush;
 using ColorConverter = System.Windows.Media.ColorConverter;
 using RadioButton = System.Windows.Controls.RadioButton;
 using VoiceSnap.Engine;
+using Res = VoiceSnap.Properties.Resources;
 
 namespace VoiceSnap
 {
@@ -166,7 +167,7 @@ namespace VoiceSnap
                 _audioRecorder.DeviceChanged += () =>
                 {
                     Dispatcher.BeginInvoke(() => {
-                        DeviceLabel.Text = "输入设备: " + _audioRecorder.GetDeviceName();
+                        DeviceLabel.Text = $"{Res.InputDevice} {_audioRecorder.GetDeviceName()}";
                         App.Log("检测到默认音频设备变更: " + DeviceLabel.Text);
                     });
                 };
@@ -185,9 +186,9 @@ namespace VoiceSnap
                 // 注意：StartPythonBackend 现在由 InitializeNativeEngine 在失败时触发，
                 // 不再在构造函数中直接启动，以避免竞争状态。
 
-                DeviceLabel.Text = "输入设备: " + _audioRecorder.GetDeviceName();
+                DeviceLabel.Text = $"{Res.InputDevice} {_audioRecorder.GetDeviceName()}";
                 string initialKey = GetKeyName(_currentHotkeyVK);
-                TrayIcon.ToolTipText = $"VoiceSnap 语闪 - 长按 {initialKey} 说话";
+                TrayIcon.ToolTipText = string.Format(Res.TrayTooltip, initialKey);
                 _indicator.SetHotkeyName(initialKey);
                 HotkeyLabel.Text = initialKey;
                 
@@ -195,7 +196,7 @@ namespace VoiceSnap
                 CheckStartupStatus();
 
                 // 设置版本号
-                VersionLabel.Text = $"版本 {GetCurrentVersion()}";
+                VersionLabel.Text = $"{Res.VersionPrefix} {GetCurrentVersion()}";
 
                 // 清理旧版本文件
                 CleanupOldVersion();
@@ -345,7 +346,7 @@ namespace VoiceSnap
 
             Dispatcher.Invoke(() => {
                 _indicator?.ShowIndicator(FloatingIndicator.IndicatorStatus.Recording);
-                UpdateRecordingStatus("🔴 录音中...", "Red");
+                UpdateRecordingStatus($"🔴 {Res.StatusRecording}", "Red");
             });
 
             Task.Run(() =>
@@ -371,7 +372,7 @@ namespace VoiceSnap
                 _audioRecorder.StopRecordingRaw(); // 停止并丢弃数据
                 Dispatcher.Invoke(() => {
                     _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                    UpdateRecordingStatus("✓ 已取消", "Orange");
+                    UpdateRecordingStatus($"✓ {Res.StatusCancelled}", "Orange");
                     if (AutoHideCheckbox.IsChecked == true) _indicator?.DelayedHide(1000);
                 });
                 return;
@@ -383,7 +384,7 @@ namespace VoiceSnap
             bool autoHide = false;
             Dispatcher.Invoke(() => {
                 autoHide = AutoHideCheckbox.IsChecked == true;
-                UpdateRecordingStatus("⌛ 正在识别...", "Orange");
+                UpdateRecordingStatus($"⌛ {Res.StatusRecognizing}", "Orange");
                 _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Processing);
             });
 
@@ -398,7 +399,7 @@ namespace VoiceSnap
                         {
                             Dispatcher.Invoke(() => {
                                 _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                                UpdateRecordingStatus("✓ 未检测到语音", "Orange");
+                                UpdateRecordingStatus($"✓ {Res.StatusNoVoice}", "Orange");
                                 if (autoHide) _indicator?.DelayedHide(1500);
                             });
                             return;
@@ -414,14 +415,14 @@ namespace VoiceSnap
                                 SafePasteText(text);
                                 Dispatcher.Invoke(() => {
                                     _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                                    UpdateRecordingStatus("✓ 已输入 (原生)", "Green");
+                                    UpdateRecordingStatus($"✓ {Res.StatusInputDone}", "Green");
                                 });
                             }
                             else
                             {
                                 Dispatcher.Invoke(() => {
                                     _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                                    UpdateRecordingStatus("✓ 未识别到内容", "Orange");
+                                    UpdateRecordingStatus($"✓ {Res.StatusNoContent}", "Orange");
                                 });
                             }
                         }
@@ -431,7 +432,7 @@ namespace VoiceSnap
                     // 如果没有原生引擎
                     Dispatcher.Invoke(() => {
                         _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                        UpdateRecordingStatus("✓ 引擎未就绪", "Red");
+                        UpdateRecordingStatus($"✓ {Res.StatusEngineNotReady}", "Red");
                     });
                 }
                 catch (Exception ex)
@@ -439,7 +440,7 @@ namespace VoiceSnap
                     App.LogError("识别过程出错", ex);
                     Dispatcher.Invoke(() => {
                         _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Ready);
-                        UpdateRecordingStatus("✗ 识别出错", "Red");
+                        UpdateRecordingStatus($"✗ {Res.StatusError}", "Red");
                     });
                 }
                 finally
@@ -473,7 +474,7 @@ namespace VoiceSnap
             Dispatcher.Invoke(() => {
                 _indicator?.SetStatus(FloatingIndicator.IndicatorStatus.Loading);
                 _indicator?.ShowIndicator(FloatingIndicator.IndicatorStatus.Loading);
-                UpdateStatus("正在加载引擎...", "Orange");
+                UpdateStatus(Res.StatusLoading, "Orange");
             });
 
             // 3. 在后台线程执行沉重的初始化工作
@@ -501,7 +502,7 @@ namespace VoiceSnap
                         }
 
                         _isOnboarding = false;
-                        UpdateStatus($"✓ 已就绪 · {_nativeEngine.ShortHardwareInfo}", "Green");
+                        UpdateStatus($"✓ {Res.StatusReady} · {_nativeEngine.ShortHardwareInfo}", "Green");
                         
                         // 在关于页面显示详细硬件信息
                         Dispatcher.Invoke(() => {
@@ -521,7 +522,7 @@ namespace VoiceSnap
                 {
                     App.LogError("原生引擎初始化失败", ex);
                     Dispatcher.Invoke(() => {
-                        InitStatusLabel.Text = "引擎加载失败";
+                        InitStatusLabel.Text = Res.EngineFailed;
                         InitDetailLabel.Text = ex.Message;
                     });
                 }
@@ -544,7 +545,7 @@ namespace VoiceSnap
                 NavHotkeys.IsEnabled = false;
                 NavAbout.IsEnabled = false;
                 
-                UpdateStatus("正在初始化...", "Orange");
+                UpdateStatus(Res.StatusInitializing, "Orange");
                 _indicator?.Hide(); // 初始化期间隐藏指示器
                 
                 _ = StartOnboardingAsync();
@@ -560,8 +561,8 @@ namespace VoiceSnap
 
                 string tempFile = Path.Combine(modelsDir, "model_package.tar.bz2");
                 
-                Dispatcher.Invoke(() => InitStatusLabel.Text = "正在同步离线语音大脑...");
-                
+                Dispatcher.Invoke(() => InitStatusLabel.Text = Res.InitSyncModel);
+
                 bool success = false;
                 try
                 {
@@ -582,13 +583,13 @@ namespace VoiceSnap
                     success = true;
                 }
 
-                if (!success) throw new Exception("所有下载地址均失效");
+                if (!success) throw new Exception(Res.DownloadFailed);
 
                 Dispatcher.Invoke(() => {
-                    InitStatusLabel.Text = "正在优化本地硬件加速 (这可能需要 1-2 分钟)...";
+                    InitStatusLabel.Text = Res.InitOptimizing;
                     // 自定义进度条不支持 IsIndeterminate，显示满进度表示正在处理
                     InitProgressFill.Width = InitProgressBarContainer.ActualWidth;
-                    InitDetailLabel.Text = "正在解压，请稍候...";
+                    InitDetailLabel.Text = Res.InitExtracting;
                 });
 
                 await Task.Run(() => ExtractModel(tempFile, modelsDir));
@@ -597,7 +598,7 @@ namespace VoiceSnap
 
                 Dispatcher.Invoke(() => {
                     InitProgressFill.Width = InitProgressBarContainer.ActualWidth;
-                    InitDetailLabel.Text = "初始化完成！";
+                    InitDetailLabel.Text = Res.InitComplete;
                 });
 
                 await Task.Delay(1000);
@@ -607,7 +608,7 @@ namespace VoiceSnap
             {
                 App.LogError("初始化流程失败", ex);
                 Dispatcher.Invoke(() => {
-                    InitStatusLabel.Text = "初始化失败";
+                    InitStatusLabel.Text = Res.InitFailed;
                     InitDetailLabel.Text = ex.Message;
                     InitProgressFill.Background = System.Windows.Media.Brushes.Red;
                 });
@@ -875,7 +876,7 @@ namespace VoiceSnap
         {
             _isRecordingHotkey = true;
             HotkeyLabel.Text = "...";
-            HotkeyHint.Text = "请按下键盘上的任意键...";
+            HotkeyHint.Text = Res.PressAnyKey;
             HotkeyHint.Foreground = new SolidColorBrush(Color.FromRgb(0, 122, 255));
         }
 
@@ -895,9 +896,9 @@ namespace VoiceSnap
                     _isRecordingHotkey = false;
                     string keyName = GetKeyName(vk);
                     HotkeyLabel.Text = keyName;
-                    HotkeyHint.Text = "快捷键已更新。";
+                    HotkeyHint.Text = Res.HotkeyUpdated;
                     HotkeyHint.Foreground = new SolidColorBrush(Color.FromRgb(142, 142, 147));
-                    TrayIcon.ToolTipText = $"VoiceSnap 语闪 - 长按 {keyName} 说话";
+                    TrayIcon.ToolTipText = string.Format(Res.TrayTooltip, keyName);
                     _indicator.SetHotkeyName(keyName);
                     SaveConfig();
                     e.Handled = true;
@@ -912,20 +913,20 @@ namespace VoiceSnap
             switch (vk)
             {
                 case 0x11: return "Ctrl";
-                case 0xA2: return "左 Ctrl";
-                case 0xA3: return "右 Ctrl";
+                case 0xA2: return "L-Ctrl";
+                case 0xA3: return "R-Ctrl";
                 case 0x12: return "Alt";
-                case 0xA4: return "左 Alt";
-                case 0xA5: return "右 Alt";
+                case 0xA4: return "L-Alt";
+                case 0xA5: return "R-Alt";
                 case 0x10: return "Shift";
-                case 0xA0: return "左 Shift";
-                case 0xA1: return "右 Shift";
+                case 0xA0: return "L-Shift";
+                case 0xA1: return "R-Shift";
                 case 0x14: return "Caps Lock";
-                case 0x20: return "空格";
+                case 0x20: return Res.KeySpace;
                 case 0x09: return "Tab";
-                case 0x0D: return "回车";
-                case 0x5B: return "左 Win";
-                case 0x5C: return "右 Win";
+                case 0x0D: return Res.KeyEnter;
+                case 0x5B: return "L-Win";
+                case 0x5C: return "R-Win";
                 case 0x1B: return "Esc";
                 default:
                     var key = System.Windows.Input.KeyInterop.KeyFromVirtualKey(vk);
@@ -937,7 +938,8 @@ namespace VoiceSnap
         {
             Dispatcher.Invoke(() =>
             {
-                string cleanText = text.Replace("✓ ", "").Replace("模型状态: ", "").Replace("🔴 ", "").Replace("⌛ ", "").Replace("✓", "");
+                // 清理状态前缀符号
+                string cleanText = text.Replace("✓ ", "").Replace("🔴 ", "").Replace("⌛ ", "").Replace("✓", "").Replace("✗ ", "");
                 StatusLabel.Text = cleanText.Trim();
                 var color = (Color)ColorConverter.ConvertFromString(colorName);
                 StatusDot.Fill = new SolidColorBrush(color);
@@ -948,9 +950,10 @@ namespace VoiceSnap
         {
             Dispatcher.Invoke(() =>
             {
-                if (text.Contains("录音")) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48)); // Red
-                else if (text.Contains("识别")) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(255, 149, 0)); // Orange
-                else if (_useNativeEngine) StatusDot.Fill = new SolidColorBrush(Color.FromRgb(52, 199, 89)); // Green
+                // 使用颜色名称判断状态，避免依赖文本内容
+                if (colorName == "Red") StatusDot.Fill = new SolidColorBrush(Color.FromRgb(255, 59, 48));
+                else if (colorName == "Orange") StatusDot.Fill = new SolidColorBrush(Color.FromRgb(255, 149, 0));
+                else if (colorName == "Green") StatusDot.Fill = new SolidColorBrush(Color.FromRgb(52, 199, 89));
             });
         }
 
@@ -1080,9 +1083,9 @@ namespace VoiceSnap
 
         private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
         {
-            UpdateStatusLabel.Text = "正在检查更新...";
+            UpdateStatusLabel.Text = Res.CheckingUpdate;
             UpdateStatusLabel.Visibility = Visibility.Visible;
-            
+
             try
             {
                 using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -1091,7 +1094,7 @@ namespace VoiceSnap
 
                 if (versionInfo == null || string.IsNullOrEmpty(versionInfo.version))
                 {
-                    UpdateStatusLabel.Text = "版本信息获取失败";
+                    UpdateStatusLabel.Text = Res.VersionInfoFailed;
                     return;
                 }
 
@@ -1112,14 +1115,14 @@ namespace VoiceSnap
                 }
                 else
                 {
-                    UpdateStatusLabel.Text = "✓ 当前已是最新版本";
+                    UpdateStatusLabel.Text = $"✓ {Res.IsLatestVersion}";
                     UpdateStatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(52, 199, 89)); // Green
                 }
             }
             catch (Exception ex)
             {
                 App.Log($"手动检查更新失败: {ex.Message}");
-                UpdateStatusLabel.Text = "检查更新失败，请稍后重试";
+                UpdateStatusLabel.Text = Res.CheckUpdateFailed;
                 UpdateStatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(255, 59, 48)); // Red
             }
         }
@@ -1320,7 +1323,7 @@ namespace VoiceSnap
                 string currentExe = Process.GetCurrentProcess().MainModule?.FileName ?? "";
                 if (string.IsNullOrEmpty(currentExe))
                 {
-                    System.Windows.MessageBox.Show("无法获取当前程序路径", "更新失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show(Res.CannotGetPath, Res.UpdateFailed, MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
@@ -1330,7 +1333,7 @@ namespace VoiceSnap
                 // 显示下载进度
                 Dispatcher.Invoke(() =>
                 {
-                    UpdateStatus("正在下载更新...", "Orange");
+                    UpdateStatus(Res.DownloadingUpdate, "Orange");
                 });
 
                 // 下载新版本
@@ -1356,7 +1359,7 @@ namespace VoiceSnap
                         int progress = (int)(totalRead * 100 / totalBytes);
                         Dispatcher.Invoke(() =>
                         {
-                            UpdateStatus($"正在下载更新 {progress}%...", "Orange");
+                            UpdateStatus($"{Res.DownloadingUpdate} {progress}%", "Orange");
                         });
                     }
                 }
@@ -1366,13 +1369,13 @@ namespace VoiceSnap
                 // 验证下载的文件
                 if (!File.Exists(tempExe) || new FileInfo(tempExe).Length < 1024 * 100) // 至少 100KB
                 {
-                    System.Windows.MessageBox.Show("下载的文件无效", "更新失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show(Res.InvalidDownload, Res.UpdateFailed, MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
                 Dispatcher.Invoke(() =>
                 {
-                    UpdateStatus("正在应用更新...", "Orange");
+                    UpdateStatus(Res.ApplyingUpdate, "Orange");
                 });
 
                 // 重命名当前 exe 为 .old
@@ -1406,8 +1409,8 @@ namespace VoiceSnap
                 App.LogError("更新失败", ex);
                 Dispatcher.Invoke(() =>
                 {
-                    System.Windows.MessageBox.Show($"更新失败: {ex.Message}", "更新错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    UpdateStatus("✓ 已就绪", "Green");
+                    System.Windows.MessageBox.Show($"{Res.UpdateFailed}: {ex.Message}", Res.UpdateError, MessageBoxButton.OK, MessageBoxImage.Error);
+                    UpdateStatus($"✓ {Res.StatusReady}", "Green");
                 });
             }
         }

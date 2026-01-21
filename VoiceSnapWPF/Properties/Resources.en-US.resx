@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- App Name -->
+  <data name="AppName" xml:space="preserve">
+    <value>VoiceSnap</value>
+  </data>
+  <data name="AppSlogan" xml:space="preserve">
+    <value>Hold to speak, release to type</value>
+  </data>
+
+  <!-- Navigation -->
+  <data name="NavGeneral" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="NavHotkeys" xml:space="preserve">
+    <value>Hotkeys</value>
+  </data>
+  <data name="NavAbout" xml:space="preserve">
+    <value>About</value>
+  </data>
+
+  <!-- General Settings -->
+  <data name="PageTitleGeneral" xml:space="preserve">
+    <value>General Settings</value>
+  </data>
+  <data name="SectionBehavior" xml:space="preserve">
+    <value>Preferences</value>
+  </data>
+  <data name="AutoHideIndicator" xml:space="preserve">
+    <value>Auto-hide indicator</value>
+  </data>
+  <data name="StartWithSystem" xml:space="preserve">
+    <value>Start with system</value>
+  </data>
+  <data name="SectionAudio" xml:space="preserve">
+    <value>Audio</value>
+  </data>
+  <data name="DetectingDevice" xml:space="preserve">
+    <value>Detecting device...</value>
+  </data>
+
+  <!-- Hotkey Settings -->
+  <data name="PageTitleHotkeys" xml:space="preserve">
+    <value>Hotkeys</value>
+  </data>
+  <data name="SectionRecordControl" xml:space="preserve">
+    <value>Recording</value>
+  </data>
+  <data name="LongPressTrigger" xml:space="preserve">
+    <value>Hold to record</value>
+  </data>
+  <data name="ChangeHotkey" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="HotkeyHint" xml:space="preserve">
+    <value>Tip: Click the button above and press any key to change.</value>
+  </data>
+
+  <!-- About Page -->
+  <data name="VersionPrefix" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>Built on SenseVoice model and Sherpa-Onnx engine. Experience fast, accurate Chinese/English/Japanese/Korean/Cantonese recognition offline.</value>
+  </data>
+  <data name="AboutAuthor" xml:space="preserve">
+    <value>Designed by YiHaFo · Xiaomai</value>
+  </data>
+  <data name="RunningMode" xml:space="preserve">
+    <value>Running mode:</value>
+  </data>
+  <data name="Detecting" xml:space="preserve">
+    <value>Detecting...</value>
+  </data>
+  <data name="VisitWebsite" xml:space="preserve">
+    <value>Visit Website</value>
+  </data>
+  <data name="CheckUpdate" xml:space="preserve">
+    <value>Check for Updates</value>
+  </data>
+
+  <!-- Status Text -->
+  <data name="StatusReady" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="StatusRecording" xml:space="preserve">
+    <value>Recording...</value>
+  </data>
+  <data name="StatusRecognizing" xml:space="preserve">
+    <value>Recognizing...</value>
+  </data>
+  <data name="StatusCancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="StatusNoVoice" xml:space="preserve">
+    <value>No voice detected</value>
+  </data>
+  <data name="StatusInputDone" xml:space="preserve">
+    <value>Input done</value>
+  </data>
+  <data name="StatusEngineNotReady" xml:space="preserve">
+    <value>Engine not ready</value>
+  </data>
+  <data name="StatusClipboardBusy" xml:space="preserve">
+    <value>Clipboard busy</value>
+  </data>
+  <data name="StatusError" xml:space="preserve">
+    <value>Recognition error</value>
+  </data>
+  <data name="StatusLoading" xml:space="preserve">
+    <value>Loading engine...</value>
+  </data>
+  <data name="StatusNoContent" xml:space="preserve">
+    <value>No content recognized</value>
+  </data>
+  <data name="StatusInitializing" xml:space="preserve">
+    <value>Initializing...</value>
+  </data>
+  <data name="DownloadingUpdate" xml:space="preserve">
+    <value>Downloading update...</value>
+  </data>
+  <data name="ApplyingUpdate" xml:space="preserve">
+    <value>Applying update...</value>
+  </data>
+  <data name="VersionInfoFailed" xml:space="preserve">
+    <value>Failed to get version info</value>
+  </data>
+  <data name="CheckUpdateFailed" xml:space="preserve">
+    <value>Update check failed, please try again later</value>
+  </data>
+  <data name="EngineFailed" xml:space="preserve">
+    <value>Engine load failed</value>
+  </data>
+  <data name="DownloadFailed" xml:space="preserve">
+    <value>All download sources failed</value>
+  </data>
+  <data name="UpdateFailed" xml:space="preserve">
+    <value>Update failed</value>
+  </data>
+  <data name="UpdateError" xml:space="preserve">
+    <value>Update Error</value>
+  </data>
+  <data name="CannotGetPath" xml:space="preserve">
+    <value>Cannot get current program path</value>
+  </data>
+  <data name="InvalidDownload" xml:space="preserve">
+    <value>Downloaded file is invalid</value>
+  </data>
+  <data name="HotkeyUpdated" xml:space="preserve">
+    <value>Hotkey updated.</value>
+  </data>
+  <data name="PressAnyKey" xml:space="preserve">
+    <value>Press any key on keyboard...</value>
+  </data>
+  <data name="IsLatestVersion" xml:space="preserve">
+    <value>Already the latest version</value>
+  </data>
+  <data name="CheckingUpdate" xml:space="preserve">
+    <value>Checking for updates...</value>
+  </data>
+  <data name="InputDevice" xml:space="preserve">
+    <value>Input device:</value>
+  </data>
+  <data name="KeySpace" xml:space="preserve">
+    <value>Space</value>
+  </data>
+  <data name="KeyEnter" xml:space="preserve">
+    <value>Enter</value>
+  </data>
+
+  <!-- Tray Menu -->
+  <data name="TrayShow" xml:space="preserve">
+    <value>Show Window</value>
+  </data>
+  <data name="TrayExit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="TrayTooltip" xml:space="preserve">
+    <value>VoiceSnap - Hold {0} to speak</value>
+  </data>
+
+  <!-- Initialization -->
+  <data name="InitPreparing" xml:space="preserve">
+    <value>Preparing offline recognition engine...</value>
+  </data>
+  <data name="InitSyncModel" xml:space="preserve">
+    <value>Syncing offline voice model...</value>
+  </data>
+  <data name="InitOptimizing" xml:space="preserve">
+    <value>Optimizing hardware acceleration...</value>
+  </data>
+  <data name="InitExtracting" xml:space="preserve">
+    <value>Extracting, please wait...</value>
+  </data>
+  <data name="InitComplete" xml:space="preserve">
+    <value>Initialization complete!</value>
+  </data>
+  <data name="InitFailed" xml:space="preserve">
+    <value>Initialization failed</value>
+  </data>
+
+</root>
