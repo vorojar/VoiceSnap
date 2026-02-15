@@ -1,0 +1,81 @@
+{
+  "app": {
+    "name": "VoiceSnap"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About"
+  },
+  "status": {
+    "loading": "Loading",
+    "ready": "Ready",
+    "recording": "Recording",
+    "processing": "Processing",
+    "done": "Done",
+    "cancelled": "Cancelled",
+    "noVoice": "No voice detected",
+    "noContent": "No content recognized",
+    "error": "Recognition error",
+    "engineNotReady": "Engine not ready",
+    "initializing": "Initializing..."
+  },
+  "indicator": {
+    "holdToSpeak": "Hold {key} to speak",
+    "recording": "Recording...",
+    "processing": "Processing...",
+    "done": "Typed"
+  },
+  "home": {
+    "tagline": "Snap · Voice to Text",
+    "description": "Hold {key} to speak, release to recognize and type",
+    "hotkeyLabel": "Trigger Hotkey",
+    "modeHint": "Hold to record, release to type · Tap to start free talk, tap again to stop"
+  },
+  "settings": {
+    "inputDevice": "Input Device",
+    "autoHide": "Auto-hide Indicator",
+    "autoHideDesc": "Automatically hide the floating indicator after completion",
+    "startAtLogin": "Start at Login",
+    "startAtLoginDesc": "Launch VoiceSnap when you log in"
+  },
+  "hotkeys": {
+    "title": "Trigger Hotkey",
+    "current": "Current Hotkey",
+    "change": "Change",
+    "pressAnyKey": "Press any key...",
+    "updated": "Updated",
+    "hintTitle": "Two Input Modes",
+    "hintHold": "Hold to Talk",
+    "hintHoldDesc": "Hold the hotkey to record, release to recognize and type. Best for quick phrases.",
+    "hintFree": "Free Talk",
+    "hintFreeDesc": "Tap the hotkey once to start, speak freely, tap again to stop and type. Best for long dictation.",
+    "hintCombo": "Keyboard shortcuts (e.g. Ctrl+C) won't trigger recording."
+  },
+  "about": {
+    "version": "Version",
+    "engineMode": "Engine",
+    "website": "Website",
+    "checkUpdate": "Check for Updates",
+    "checkingUpdate": "Checking...",
+    "isLatestVersion": "Up to date",
+    "checkFailed": "Check failed",
+    "copyright": "© {year} VoiceSnap · MIT License"
+  },
+  "onboarding": {
+    "title": "First Time Setup",
+    "syncModel": "Downloading voice model...",
+    "optimizing": "Optimizing...",
+    "extracting": "Extracting model files...",
+    "complete": "Complete",
+    "failed": "Setup failed"
+  },
+  "update": {
+    "title": "Update Available",
+    "version": "Version {version}",
+    "releaseNotes": "Release Notes",
+    "download": "Update Now",
+    "later": "Later",
+    "downloading": "Downloading...",
+    "applying": "Applying update..."
+  }
+}

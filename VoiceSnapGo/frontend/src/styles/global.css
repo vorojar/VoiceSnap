@@ -1,0 +1,98 @@
+/* Apple-inspired color palette and global styles */
+:root {
+  /* Apple System Colors */
+  --color-blue: #007aff;
+  --color-green: #34c759;
+  --color-red: #ff3b30;
+  --color-orange: #ff9500;
+  --color-yellow: #ffcc00;
+  --color-purple: #af52de;
+  --color-pink: #ff2d55;
+  --color-teal: #5ac8fa;
+
+  /* Grays (Light) */
+  --color-label: #000000;
+  --color-secondary-label: #3c3c4399;
+  --color-tertiary-label: #3c3c434d;
+  --color-separator: #3c3c4336;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f2f2f7;
+  --color-bg-tertiary: #ffffff;
+  --color-bg-grouped: #f2f2f7;
+  --color-bg-grouped-secondary: #ffffff;
+
+  /* Indicator */
+  --indicator-bg: rgba(28, 28, 30, 0.92);
+  --indicator-text: #ffffff;
+  --indicator-radius: 30px;
+  --indicator-bar-width: 4px;
+  --indicator-bar-gap: 3px;
+
+  /* Typography */
+  --font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 17px;
+  --font-size-xl: 20px;
+  --font-size-title: 28px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 32px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* Sidebar */
+  --sidebar-width: 180px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--color-label);
+  background-color: var(--color-bg-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-separator);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-tertiary-label);
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=VoiceSnap
+Comment=Offline voice-to-text input tool
+Exec=voicesnap
+Icon=voicesnap
+Terminal=false
+Categories=Utility;AudioVideo;
+Keywords=voice;speech;text;input;asr;
+StartupNotify=false

@@ -1,0 +1,27 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application for Windows
+    deps:
+      - task: common:go:mod:tidy
+      - task: common:build:frontend
+        vars:
+          PRODUCTION:
+            ref: .PRODUCTION
+    cmds:
+      - go build -buildvcs=false -gcflags=all="-l" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
+    env:
+      GOOS: windows
+      CGO_ENABLED: 1
+      GOARCH: '{{.ARCH | default ARCH}}'
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+    vars:
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+
+  run:
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'

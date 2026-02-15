@@ -1,0 +1,81 @@
+{
+  "app": {
+    "name": "VoiceSnap 语闪"
+  },
+  "nav": {
+    "home": "首页",
+    "about": "关于"
+  },
+  "status": {
+    "loading": "加载中",
+    "ready": "就绪",
+    "recording": "录音中",
+    "processing": "识别中",
+    "done": "完成",
+    "cancelled": "已取消",
+    "noVoice": "未检测到语音",
+    "noContent": "无识别结果",
+    "error": "识别出错",
+    "engineNotReady": "引擎未就绪",
+    "initializing": "初始化中..."
+  },
+  "indicator": {
+    "holdToSpeak": "按住{key}说话",
+    "recording": "正在录音...",
+    "processing": "识别中...",
+    "done": "已输入"
+  },
+  "home": {
+    "tagline": "Snap · 语音即输入",
+    "description": "按住 {key} 说话，松开即识别并输入文字",
+    "hotkeyLabel": "触发热键",
+    "modeHint": "长按录音，松开输入 · 短按开始自由说话，再按结束"
+  },
+  "settings": {
+    "inputDevice": "输入设备",
+    "autoHide": "自动隐藏指示器",
+    "autoHideDesc": "操作完成后自动隐藏浮动指示器",
+    "startAtLogin": "开机自启动",
+    "startAtLoginDesc": "登录系统时自动启动 VoiceSnap"
+  },
+  "hotkeys": {
+    "title": "触发热键",
+    "current": "当前热键",
+    "change": "修改",
+    "pressAnyKey": "请按任意键...",
+    "updated": "已更新",
+    "hintTitle": "两种输入模式",
+    "hintHold": "按住说话",
+    "hintHoldDesc": "长按热键开始录音，松开即停止识别并输入文字，适合快速短语。",
+    "hintFree": "自由说话",
+    "hintFreeDesc": "短按一下热键开始，连续说话，再短按一下停止并输入文字，适合长段口述。",
+    "hintCombo": "使用组合键（如 Ctrl+C）不会触发录音。"
+  },
+  "about": {
+    "version": "版本",
+    "engineMode": "推理引擎",
+    "website": "官方网站",
+    "checkUpdate": "检查更新",
+    "checkingUpdate": "正在检查...",
+    "isLatestVersion": "已是最新版本",
+    "checkFailed": "检查失败",
+    "copyright": "© {year} VoiceSnap · MIT License"
+  },
+  "onboarding": {
+    "title": "首次设置",
+    "syncModel": "正在同步语音模型...",
+    "optimizing": "正在优化...",
+    "extracting": "正在解压模型文件...",
+    "complete": "完成",
+    "failed": "设置失败"
+  },
+  "update": {
+    "title": "发现新版本",
+    "version": "版本 {version}",
+    "releaseNotes": "更新日志",
+    "download": "立即更新",
+    "later": "稍后",
+    "downloading": "正在下载...",
+    "applying": "正在应用更新..."
+  }
+}

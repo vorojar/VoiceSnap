@@ -1,0 +1,47 @@
+version: '3'
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    cmds:
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Install frontend dependencies
+    dir: frontend
+    sources:
+      - package.json
+      - package-lock.json
+    generates:
+      - node_modules/*
+    preconditions:
+      - sh: npm version
+        msg: "Looks like npm isn't installed."
+    cmds:
+      - npm install
+
+  build:frontend:
+    label: build:frontend (PRODUCTION={{.PRODUCTION}})
+    summary: Build the frontend project
+    dir: frontend
+    sources:
+      - "**/*"
+    generates:
+      - dist/**/*
+    deps:
+      - task: install:frontend:deps
+    cmds:
+      - npm run {{.BUILD_COMMAND}} -q
+    env:
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+    vars:
+      BUILD_COMMAND: '{{if eq .PRODUCTION "true"}}build{{else}}build{{end}}'
+
+  dev:frontend:
+    summary: Runs the frontend in development mode
+    dir: frontend
+    deps:
+      - task: install:frontend:deps
+    cmds:
+      - npm run dev -- --port {{.VITE_PORT}} --strictPort

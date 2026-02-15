@@ -16,6 +16,8 @@
 !VoiceSnap.Engine/**
 !VoiceSnapWPF/
 !VoiceSnapWPF/**
+!VoiceSnapGo/
+!VoiceSnapGo/**
 
 # 4. 在允许的目录中，重新忽略不需要的产物
 **/bin/
@@ -32,3 +34,10 @@
 **/.vs/
 **/.vscode/
 **/redist/
+# Go / Node artifacts
+**/node_modules/
+**/*.syso
+**/*.log
+**/frontend/dist/
+**/PLAN.md
+**/config.json
