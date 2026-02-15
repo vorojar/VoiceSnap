@@ -8,6 +8,7 @@
 # 2. 允许特定的根目录文件
 !LICENSE
 !README.md
+!CHANGELOG.md
 !screenshot.png
 !.gitignore
 

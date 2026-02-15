@@ -9,8 +9,10 @@ import (
 
 // Config holds the application configuration, compatible with the WPF version's config.json.
 type Config struct {
-	HotkeyVK               int    `json:"HotkeyVK"`
+	HotkeyVK                int    `json:"HotkeyVK"`
 	AutoHide                bool   `json:"AutoHide"`
+	SoundFeedback           bool   `json:"SoundFeedback"`
+	DeviceName              string `json:"DeviceName,omitempty"`
 	ModelDownloadUrl        string `json:"ModelDownloadUrl"`
 	FallbackModelDownloadUrl string `json:"FallbackModelDownloadUrl"`
 }
@@ -20,6 +22,7 @@ func Default() *Config {
 	return &Config{
 		HotkeyVK:                0xA3, // Right Ctrl
 		AutoHide:                true,
+		SoundFeedback:           true,
 		ModelDownloadUrl:        "http://www.maikami.com/voicesnap/sensevoice.zip",
 		FallbackModelDownloadUrl: "https://modelscope.cn/models/sherpa-onnx/sherpa-onnx-sense-voice-zh-en-ja-ko-yue/resolve/master/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2",
 	}

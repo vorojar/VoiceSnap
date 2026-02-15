@@ -35,6 +35,8 @@
     "inputDevice": "输入设备",
     "autoHide": "自动隐藏指示器",
     "autoHideDesc": "操作完成后自动隐藏浮动指示器",
+    "soundFeedback": "提示音",
+    "soundFeedbackDesc": "录音开始和结束时播放提示音",
     "startAtLogin": "开机自启动",
     "startAtLoginDesc": "登录系统时自动启动 VoiceSnap"
   },

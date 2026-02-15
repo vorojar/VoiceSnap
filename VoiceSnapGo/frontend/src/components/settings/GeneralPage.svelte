@@ -2,11 +2,17 @@
   import { Call } from '@wailsio/runtime'
   import ToggleSwitch from '../shared/ToggleSwitch.svelte'
   import { t } from '../../lib/i18n'
-  import { autoHide, startAtLogin, hotkeyVK } from '../../lib/stores/config'
+  import { autoHide, soundFeedback, startAtLogin, hotkeyVK } from '../../lib/stores/config'
   import { deviceName, engineStatus, engineHardwareInfo } from '../../lib/stores/app'
   import { hotkeyName } from '../../lib/stores/indicator'
 
+  interface InputDevice {
+    Name: string
+    IsDefault: boolean
+  }
+
   let autoHideVal = $state(true)
+  let soundFeedbackVal = $state(true)
   let startAtLoginVal = $state(false)
   let device = $state('Default')
   let status = $state('loading')
@@ -14,6 +20,8 @@
   let currentKeyName = $state('Ctrl')
   let isRecording = $state(false)
   let hintText = $state('')
+  let devices = $state<InputDevice[]>([])
+  let showDeviceDropdown = $state(false)
 
   const unsub1 = autoHide.subscribe(v => { autoHideVal = v })
   const unsub2 = startAtLogin.subscribe(v => { startAtLoginVal = v })
@@ -21,6 +29,7 @@
   const unsub4 = engineStatus.subscribe(v => { status = v })
   const unsub5 = engineHardwareInfo.subscribe(v => { hwInfo = v })
   const unsub6 = hotkeyName.subscribe(k => { currentKeyName = k })
+  const unsub7 = soundFeedback.subscribe(v => { soundFeedbackVal = v })
 
   async function onAutoHideChange(checked: boolean) {
     autoHide.set(checked)
@@ -29,11 +38,48 @@
     } catch {}
   }
 
+  async function onSoundFeedbackChange(checked: boolean) {
+    soundFeedback.set(checked)
+    try {
+      await Call.ByName('voicesnap/services.ConfigService.SetSoundFeedback', checked)
+    } catch {}
+  }
+
   async function onStartAtLoginChange(checked: boolean) {
     startAtLogin.set(checked)
     try {
       await Call.ByName('voicesnap/services.ConfigService.SetStartupEnabled', checked)
     } catch {}
+  }
+
+  async function toggleDeviceDropdown() {
+    if (showDeviceDropdown) {
+      showDeviceDropdown = false
+      return
+    }
+    try {
+      const list: any = await Call.ByName('voicesnap/services.AudioService.ListInputDevices')
+      devices = list || []
+    } catch {
+      devices = []
+    }
+    showDeviceDropdown = true
+  }
+
+  async function selectDevice(dev: InputDevice) {
+    showDeviceDropdown = false
+    device = dev.Name
+    deviceName.set(dev.Name)
+    try {
+      await Call.ByName('voicesnap/services.AudioService.SetDevice', dev.Name)
+    } catch {}
+  }
+
+  function closeDropdown(e: MouseEvent) {
+    const target = e.target as HTMLElement
+    if (!target.closest('.device-selector')) {
+      showDeviceDropdown = false
+    }
   }
 
   async function startRecordingHotkey() {
@@ -105,7 +151,7 @@
   <!-- Header -->
   <div class="header">
     <h1 class="tagline">{t('home.tagline')}</h1>
-    <p class="app-desc">{t('home.description', { key: currentKeyName })}</p>
+    <p class="app-desc">{t('home.modeHint')}</p>
   </div>
 
   <!-- Hotkey -->
@@ -126,11 +172,12 @@
       <p class="hint" class:recording={isRecording}>{hintText}</p>
     {/if}
 
-    <p class="mode-hint">{t('home.modeHint')}</p>
   </div>
 
   <!-- Engine + Device -->
-  <div class="section">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="section" onclick={closeDropdown}>
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{t('about.engineMode')}</span>
@@ -152,13 +199,48 @@
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{t('settings.inputDevice')}</span>
-        <span class="setting-value">{device}</span>
+      </div>
+      <div class="device-selector">
+        <button class="device-btn" onclick={toggleDeviceDropdown}>
+          <span class="device-name">{device}</span>
+          <svg class="chevron" class:open={showDeviceDropdown} width="10" height="6" viewBox="0 0 10 6" fill="none">
+            <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        {#if showDeviceDropdown && devices.length > 0}
+          <div class="device-dropdown">
+            {#each devices as dev}
+              <button
+                class="device-option"
+                class:selected={dev.Name === device}
+                onclick={() => selectDevice(dev)}
+              >
+                {dev.Name}
+                {#if dev.Name === device}
+                  <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
+                    <path d="M1 4L4.5 7.5L11 1" stroke="var(--color-blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   </div>
 
   <!-- Toggles -->
   <div class="section">
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-label">{t('settings.soundFeedback')}</span>
+        <span class="setting-desc">{t('settings.soundFeedbackDesc')}</span>
+      </div>
+      <ToggleSwitch checked={soundFeedbackVal} onchange={onSoundFeedbackChange} />
+    </div>
+
+    <div class="divider"></div>
+
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-label">{t('settings.autoHide')}</span>
@@ -268,13 +350,6 @@
     color: var(--color-blue);
   }
 
-  .mode-hint {
-    margin-top: var(--spacing-md);
-    font-size: var(--font-size-xs);
-    color: var(--color-tertiary-label);
-    line-height: 1.6;
-  }
-
   /* Settings rows */
   .status-dot {
     display: inline-block;
@@ -322,5 +397,84 @@
     height: 1px;
     background: var(--color-separator);
     margin: var(--spacing-sm) 0;
+  }
+
+  /* Device selector */
+  .device-selector {
+    position: relative;
+  }
+
+  .device-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-secondary-label);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+  }
+
+  .device-btn:hover { opacity: 0.65; }
+
+  .device-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chevron {
+    color: var(--color-tertiary-label);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .device-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    min-width: 240px;
+    max-width: 320px;
+    background: var(--color-bg-grouped-secondary);
+    border: 1px solid var(--color-separator);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .device-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-label);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+  }
+
+  .device-option:hover {
+    background: var(--color-bg-secondary);
+  }
+
+  .device-option.selected {
+    color: var(--color-blue);
+    font-weight: 500;
+  }
+
+  .device-option + .device-option {
+    border-top: 1px solid var(--color-separator);
   }
 </style>

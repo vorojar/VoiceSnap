@@ -15,6 +15,12 @@ const (
 	silenceThreshold = 0.05
 )
 
+// InputDevice represents an audio input device.
+type InputDevice struct {
+	Name      string `json:"name"`
+	IsDefault bool   `json:"isDefault"`
+}
+
 // Recorder captures audio from the default input device using malgo (miniaudio).
 type Recorder struct {
 	mu sync.Mutex
@@ -24,6 +30,9 @@ type Recorder struct {
 
 	// PCM buffer (16-bit signed, little-endian)
 	pcmBuf []byte
+
+	// Preferred device name (empty = system default)
+	preferredDevice string
 
 	// State
 	isRecording      bool
@@ -58,7 +67,35 @@ func (r *Recorder) OnDeviceChange(fn func(string)) {
 	r.deviceChangeCb = fn
 }
 
-// Start begins recording from the default capture device.
+// ListInputDevices returns all available audio capture devices.
+func (r *Recorder) ListInputDevices() []InputDevice {
+	if r.ctx == nil {
+		return nil
+	}
+	infos, err := r.ctx.Context.Devices(malgo.Capture)
+	if err != nil {
+		logger.Error("Failed to list devices: %v", err)
+		return nil
+	}
+	var result []InputDevice
+	for i, info := range infos {
+		result = append(result, InputDevice{
+			Name:      info.Name(),
+			IsDefault: i == 0,
+		})
+	}
+	return result
+}
+
+// SetPreferredDevice sets the preferred device by name. Empty string = system default.
+func (r *Recorder) SetPreferredDevice(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.preferredDevice = name
+	logger.Info("Preferred device set to: %q", name)
+}
+
+// Start begins recording from the preferred (or default) capture device.
 func (r *Recorder) Start() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -76,6 +113,19 @@ func (r *Recorder) Start() error {
 	deviceConfig.Capture.Channels = channels
 	deviceConfig.SampleRate = sampleRate
 	deviceConfig.PeriodSizeInMilliseconds = 50
+
+	// Use preferred device if set
+	if r.preferredDevice != "" {
+		infos, err := r.ctx.Context.Devices(malgo.Capture)
+		if err == nil {
+			for _, info := range infos {
+				if info.Name() == r.preferredDevice {
+					deviceConfig.Capture.DeviceID = info.ID.Pointer()
+					break
+				}
+			}
+		}
+	}
 
 	callbacks := malgo.DeviceCallbacks{
 		Data: func(outputSamples, inputSamples []byte, framecount uint32) {

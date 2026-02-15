@@ -13,6 +13,7 @@ import (
 	"voicesnap/internal/input"
 	"voicesnap/internal/logger"
 	"voicesnap/internal/overlay"
+	"voicesnap/internal/sound"
 	"voicesnap/services"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -84,7 +85,7 @@ func RunApp() error {
 	engineService := services.NewEngineService()
 	hotkeyService := services.NewHotkeyService(app.cfg)
 	updaterService := services.NewUpdaterService(appVersion)
-	audioService := services.NewAudioService(app.recorder)
+	audioService := services.NewAudioService(app.recorder, app.cfg)
 
 	// Create Wails application
 	wailsApp := application.New(application.Options{
@@ -205,6 +206,21 @@ func (a *App) pollHotkey() {
 		return
 	}
 
+	// Escape cancels any active recording
+	if a.cfg.HotkeyVK != 0x1B && (a.isRecording || a.isFreetalking) && a.hk.IsKeyDown(0x1B) {
+		a.isFreetalking = false
+		a.isRecording = false
+		a.lastStopTime = time.Now()
+		a.recorder.Stop()
+		logger.Info("Recording cancelled (Escape)")
+		a.indicator.SetStatus(overlay.StatusCancelled, "已取消")
+		if a.cfg.SoundFeedback {
+			sound.PlayCancel()
+		}
+		a.delayedHide(1000)
+		return
+	}
+
 	isDown := a.hk.IsKeyDown(a.cfg.HotkeyVK)
 
 	if isDown {
@@ -258,6 +274,9 @@ func (a *App) startRecordingLocked() {
 	a.positionIndicatorCenter()
 	a.indicator.SetStatus(overlay.StatusRecording, "")
 	a.indicator.Show()
+	if a.cfg.SoundFeedback {
+		sound.PlayStart()
+	}
 
 	if err := a.recorder.Start(); err != nil {
 		logger.Error("Failed to start recording: %v", err)
@@ -277,6 +296,9 @@ func (a *App) stopRecordingLocked(cancel bool) {
 		a.recorder.Stop()
 		logger.Info("Recording cancelled (combination key)")
 		a.indicator.SetStatus(overlay.StatusCancelled, "已取消")
+		if a.cfg.SoundFeedback {
+			sound.PlayCancel()
+		}
 		a.delayedHide(1000)
 		return
 	}
@@ -335,6 +357,9 @@ func (a *App) stopRecordingLocked(cancel bool) {
 		}
 
 		a.indicator.SetStatus(overlay.StatusDone, "完成")
+		if a.cfg.SoundFeedback {
+			sound.PlayDone()
+		}
 		a.delayedHide(2000)
 	}()
 }
@@ -351,6 +376,9 @@ func (a *App) startFreetalkLocked() {
 	a.positionIndicatorCenter()
 	a.indicator.SetStatus(overlay.StatusFreetalking, "说话中")
 	a.indicator.Show()
+	if a.cfg.SoundFeedback {
+		sound.PlayStart()
+	}
 
 	if err := a.recorder.Start(); err != nil {
 		logger.Error("Failed to start free talk recording: %v", err)
@@ -421,6 +449,9 @@ func (a *App) stopFreetalkLocked() {
 		}
 
 		a.indicator.SetStatus(overlay.StatusDone, "完成")
+		if a.cfg.SoundFeedback {
+			sound.PlayDone()
+		}
 		a.delayedHide(2000)
 	}()
 }

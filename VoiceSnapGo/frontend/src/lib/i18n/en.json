@@ -35,6 +35,8 @@
     "inputDevice": "Input Device",
     "autoHide": "Auto-hide Indicator",
     "autoHideDesc": "Automatically hide the floating indicator after completion",
+    "soundFeedback": "Sound Feedback",
+    "soundFeedbackDesc": "Play a beep when recording starts and stops",
     "startAtLogin": "Start at Login",
     "startAtLoginDesc": "Launch VoiceSnap when you log in"
   },

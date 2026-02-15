@@ -30,6 +30,17 @@ func (s *ConfigService) GetAutoHide() bool {
 	return s.cfg.AutoHide
 }
 
+// SetSoundFeedback sets the sound feedback preference.
+func (s *ConfigService) SetSoundFeedback(enabled bool) {
+	s.cfg.SoundFeedback = enabled
+	config.Save(s.cfg)
+}
+
+// GetSoundFeedback returns the sound feedback preference.
+func (s *ConfigService) GetSoundFeedback() bool {
+	return s.cfg.SoundFeedback
+}
+
 // IsStartupEnabled returns whether the app is set to start at login.
 func (s *ConfigService) IsStartupEnabled() bool {
 	return startup.IsEnabled()

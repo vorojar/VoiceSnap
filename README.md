@@ -1,133 +1,142 @@
-# VoiceSnap 语闪 - C# WPF 版本
+# VoiceSnap 语闪
 
-> 长按说话，松手即输 —— 离线 · 极速 · 精准
+> 长按说话，松手即输 —— 离线 · 极速 · 跨平台
 
 ![VoiceSnap 语闪](screenshot.png)
 
-## ✨ 版本历史
+VoiceSnap 是一款离线语音转文字工具。按住快捷键说话，松开即识别并输入文字到任意应用。无需联网，无需注册，开箱即用。
 
-### v1.3.2 (2026-01-21)
-- ⚡ **全链路异步化**：识别+粘贴移至后台线程，彻底消除UI卡顿。
-- 🚀 **彻底移除 Python 依赖**：实现纯原生 C# + C++ 引擎，安装包更精简。
-- 🛠️ **原生剪贴板重构**：引入 Win32 API 写入剪贴板，彻底解决 `CLIPBRD_E_CANT_OPEN` 导致的锁死。
-- ⌨️ **新增“模拟打字”模式**：支持直接发送 Unicode 字符，解决同花顺、交易终端等软件无法粘贴的问题。
-- 🎯 **焦点保护机制**：引入 `WS_EX_NOACTIVATE`，确保指示器窗口永远不会抢夺当前输入框焦点。
-- 📦 **自动集成运行库**：打包时自动提取并集成 VC++ Redistributable DLL，真正实现开箱即用。
+## 两个版本
 
-### v1.3.1 (2026-01-02)
-- 🔧 修复剪贴板偶发锁定导致的错误弹窗
-- 🔧 修复 Ctrl 键与粘贴操作冲突导致的偶发卡住
-- 🔧 修复 ONNX Stream 内存泄漏问题
-- ⚡ 新增安全粘贴机制：等待用户松开按键后再执行
-- ⚡ 新增空闲 30 秒自动内存回收机制
-- 📉 优化长时间使用的内存占用
-- 📉 移除不必要的日志输出，减少日志文件增长
+| | **v2.0 Go** (推荐) | **v1.x WPF** |
+|---|---|---|
+| 技术栈 | Go + Wails v3 + Svelte | C# + WPF + .NET 8 |
+| 平台 | Windows（Mac/Linux 计划中） | 仅 Windows |
+| 体积 | ~34 MB (exe + DLL) | ~80 MB |
+| 内存 | ~400 MB（含模型） | ~500 MB |
+| UI 风格 | Apple Design，现代 Web | WPF 原生 |
+| 目录 | [`VoiceSnapGo/`](VoiceSnapGo/) | [`VoiceSnapWPF/`](VoiceSnapWPF/) |
 
-### v1.3.0
-- 🚀 新增 DirectML 硬件加速 (自动检测 GPU/CPU)
-- 🔄 新增应用内自动更新功能
-- 🎤 新增 VAD 能量检测，静音时跳过识别
-- 🔌 新增音频设备热插拔支持
-- 🌐 新增双地址模型下载备份机制
+## 核心特性
 
-## 🚀 特性亮点
+- **完全离线** — SenseVoice 模型本地推理，无数据上传
+- **DirectML GPU 加速** — 自动检测显卡，CPU 自动回退
+- **两种输入模式** — 长按说话 + 短按自由说话
+- **自定义快捷键** — 支持 Ctrl / Alt / Shift / 功能键 / 字母键
+- **麦克风选择** — 下拉切换输入设备
+- **录音音效** — 马林巴风格提示音（可关闭）
+- **Escape 取消** — 录音中按 Esc 立即取消
+- **剪贴板保护** — 粘贴后自动恢复原剪贴板内容
+- **中英双语界面** — 自动跟随系统语言
+- **系统托盘常驻** — 关闭窗口不退出
+- **开机自启** — 可选
 
-| 特性 | 说明 |
-|-----|------|
-| **启动速度** | 0.1-0.3 秒 ⚡ |
-| **打包体积** | ~80 MB (自包含运行时) |
-| **运行模式** | 完全离线，无需网络，**彻底移除 Python 依赖** |
-| **输入模式** | 支持 **剪贴板粘贴** 与 **模拟打字** 双模式 |
-| **硬件加速** | 自动检测 DirectML GPU 加速 |
-| **用户安装** | 双击即用，内置 VC++ 运行库，无需安装任何依赖 ✅ |
+## 快速开始
 
-## 🏗️ 架构设计
+### 用户
 
-```
-┌─────────────────────────────────────────────────┐
-│  C# WPF UI (极速启动)                            │
-│  • 浮动指示器 (半透明胶囊 + 声纹动画)              │
-│  • 系统托盘常驻                                  │
-│  • 全局快捷键监听 (自定义按键)                    │
-│  • 剪贴板重试机制                                │
-│  • 空闲内存自动回收                              │
-└───────────────────┬─────────────────────────────┘
-                    │ 直接调用
-                    ▼
-┌─────────────────────────────────────────────────┐
-│  VoiceSnap.Engine (原生 ONNX Runtime)            │
-│  • SherpaOnnx SenseVoice 模型                   │
-│  • DirectML GPU 加速 / CPU 回退                  │
-│  • 16kHz 单声道 PCM 输入                         │
-└─────────────────────────────────────────────────┘
-```
+1. 从 [Releases](https://github.com/vorojar/VoiceSnap/releases) 下载最新版本
+2. 解压到任意目录，双击 `voicesnap.exe`
+3. 首次启动自动下载语音模型（~200 MB）
+4. 就绪后，在任意输入框中按住 **右 Ctrl** 说话，松开即输入
 
-## 🛠️ 开发环境
-
-### 环境要求
-
-- Windows 10/11 (x64)
-- .NET 8.0 SDK ([下载](https://dotnet.microsoft.com/download/dotnet/8.0))
-
-### 快速开始
+### 开发者 (Go 版本)
 
 ```bash
-# 1. 还原依赖
+# 环境要求
+# - Go 1.22+
+# - Node.js 20+
+# - CGO 编译器 (Windows: LLVM MinGW UCRT)
+
+# 克隆
+git clone https://github.com/vorojar/VoiceSnap.git
+cd VoiceSnap/VoiceSnapGo
+
+# 安装前端依赖
+cd frontend && npm install && cd ..
+
+# 开发模式
+wails3 dev
+
+# 生产构建
+CGO_ENABLED=1 go build -ldflags "-H windowsgui -s -w" -o voicesnap.exe .
+```
+
+### 开发者 (WPF 版本)
+
+```bash
+cd VoiceSnap/VoiceSnapWPF
 dotnet restore
-
-# 2. 运行 (开发模式)
 dotnet run
-
-# 3. 编译发布版
-dotnet publish -c Release -o publish
 ```
 
-## 📁 项目结构
+## 使用方法
+
+1. 系统托盘出现 VoiceSnap 图标，引擎加载完成后就绪
+2. **长按模式**：按住快捷键说话，松开即识别并粘贴
+3. **自由说话**：短按一下开始，连续说话，再短按一下停止
+4. **取消录音**：录音中按 Esc
+5. 右键托盘图标可打开设置或退出
+
+## 运行文件
+
+| 文件 | 大小 | 说明 |
+|---|---|---|
+| `voicesnap.exe` | ~15 MB | 主程序 |
+| `onnxruntime.dll` | ~15 MB | ONNX Runtime |
+| `sherpa-onnx-c-api.dll` | ~4 MB | sherpa-onnx C API |
+| `sherpa-onnx-cxx-api.dll` | ~248 KB | sherpa-onnx C++ API |
+| `models/sensevoice/` | ~200 MB | 语音模型（首次自动下载） |
+
+## 项目结构
 
 ```
-Fun-ASR/
-├── VoiceSnapWPF/                 # 主应用项目
-│   ├── VoiceSnap.csproj          # 项目文件
-│   ├── App.xaml                  # 应用入口
-│   ├── MainWindow.xaml           # 主窗口 (设置界面)
-│   ├── MainWindow.xaml.cs        # 主窗口逻辑
-│   ├── FloatingIndicator.xaml    # 浮动指示器
-│   ├── AudioRecorder.cs          # 音频录制 (NAudio)
-│   ├── Assets/
-│   │   └── icon.ico              # 应用图标
-│   └── publish/                  # 发布输出目录
+VoiceSnap/
+├── VoiceSnapGo/              # v2.0 Go + Wails v3 + Svelte
+│   ├── main.go               # 入口：单实例 + Wails 启动
+│   ├── app.go                # 编排：热键 → 录音 → 识别 → 粘贴
+│   ├── internal/
+│   │   ├── audio/            # malgo 录音 + 设备枚举
+│   │   ├── engine/           # sherpa-onnx 推理
+│   │   ├── hotkey/           # 全局热键轮询
+│   │   ├── input/            # 剪贴板 + 粘贴 + 剪贴板保护
+│   │   ├── config/           # JSON 配置
+│   │   ├── sound/            # 录音音效（合成 WAV）
+│   │   ├── overlay/          # Win32 浮动指示器
+│   │   └── ...
+│   ├── services/             # Wails 服务（前端绑定）
+│   └── frontend/             # Svelte + Vite
+│       ├── src/components/   # 设置窗口 + 指示器
+│       └── src/lib/          # stores + i18n
 │
-├── VoiceSnap.Engine/             # 原生识别引擎
-│   └── AsrEngine.cs              # ONNX 推理封装
+├── VoiceSnapWPF/             # v1.x C# WPF 版本
+│   ├── VoiceSnap.csproj
+│   ├── MainWindow.xaml
+│   └── ...
 │
-└── VoiceSnap_Release/            # 发布版本
-    ├── VoiceSnap.exe             # 可执行文件
-    └── version.json              # 版本信息 (用于自动更新)
+├── VoiceSnap.Engine/         # 原生识别引擎 (WPF 版)
+└── screenshot.png
 ```
 
-## 🎯 使用方法
+## 技术栈 (Go 版本)
 
-1. 首次启动自动下载语音模型 (~200MB)
-2. 加载完成后，指示器显示 🟢 "长按 Ctrl 说话"
-3. 在任意输入框中长按 **Ctrl** 键 (可在设置中更改)
-4. 指示器变 🔴 红，显示声纹波形
-5. 松开按键，指示器变 🟠 "识别中"
-6. 识别完成后自动粘贴文字到光标位置
+| 组件 | 技术 |
+|---|---|
+| 桌面框架 | [Wails v3](https://wails.io/) |
+| 前端 | [Svelte 5](https://svelte.dev/) + Vite + TypeScript |
+| 音频录制 | [malgo](https://github.com/gen2brain/malgo) (miniaudio) |
+| 语音识别 | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (SenseVoice) |
+| 全局热键 | Win32 GetAsyncKeyState 轮询 |
+| 文字输入 | Win32 剪贴板 + SendInput |
+| 浮动指示器 | Win32 GDI+ Layered Window |
+| 音效 | 程序合成 WAV + winmm PlaySound |
 
-## ⚙️ 设置选项
-
-- **快捷键**: 支持自定义触发按键 (Ctrl/Alt/Shift/任意键)
-- **自动隐藏**: 识别完成后自动隐藏指示器
-- **开机启动**: 开机自动运行
-- **检查更新**: 应用内一键更新
-
-## 📦 依赖库
-
-- [NAudio](https://github.com/naudio/NAudio) - 音频录制
-- [SherpaOnnx](https://github.com/k2-fsa/sherpa-onnx) - 语音识别引擎
-- [Hardcodet.NotifyIcon.Wpf](https://github.com/hardcodet/wpf-notifyicon) - 系统托盘
-- ONNX Runtime + DirectML - 硬件加速推理
-
-## 📄 许可证
+## 许可证
 
 MIT License
+
+## 致谢
+
+- [SherpaOnnx](https://github.com/k2-fsa/sherpa-onnx) — 语音识别引擎
+- [Wails](https://wails.io/) — Go 桌面应用框架
+- [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) — 语音模型

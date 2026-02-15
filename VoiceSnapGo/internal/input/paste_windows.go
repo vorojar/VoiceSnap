@@ -10,16 +10,19 @@ import (
 )
 
 var (
-	user32          = syscall.NewLazyDLL("user32.dll")
-	kernel32        = syscall.NewLazyDLL("kernel32.dll")
-	procOpenClipboard   = user32.NewProc("OpenClipboard")
-	procCloseClipboard  = user32.NewProc("CloseClipboard")
-	procEmptyClipboard  = user32.NewProc("EmptyClipboard")
+	user32               = syscall.NewLazyDLL("user32.dll")
+	kernel32             = syscall.NewLazyDLL("kernel32.dll")
+	procOpenClipboard    = user32.NewProc("OpenClipboard")
+	procCloseClipboard   = user32.NewProc("CloseClipboard")
+	procEmptyClipboard   = user32.NewProc("EmptyClipboard")
 	procSetClipboardData = user32.NewProc("SetClipboardData")
-	procSendInput       = user32.NewProc("SendInput")
-	procGlobalAlloc     = kernel32.NewProc("GlobalAlloc")
-	procGlobalLock      = kernel32.NewProc("GlobalLock")
-	procGlobalUnlock    = kernel32.NewProc("GlobalUnlock")
+	procGetClipboardData = user32.NewProc("GetClipboardData")
+	procIsClipboardFormatAvailable = user32.NewProc("IsClipboardFormatAvailable")
+	procSendInput        = user32.NewProc("SendInput")
+	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
+	procGlobalLock       = kernel32.NewProc("GlobalLock")
+	procGlobalUnlock     = kernel32.NewProc("GlobalUnlock")
+	procGlobalSize       = kernel32.NewProc("GlobalSize")
 )
 
 const (
@@ -53,6 +56,9 @@ func newPlatformPaster() Paster {
 }
 
 func (p *windowsPaster) Paste(text string) error {
+	// Save original clipboard content
+	oldClip := getClipboardText()
+
 	if err := setClipboard(text); err != nil {
 		return err
 	}
@@ -73,6 +79,15 @@ func (p *windowsPaster) Paste(text string) error {
 	if ret == 0 {
 		return fmt.Errorf("SendInput failed: %v", err)
 	}
+
+	// Restore original clipboard after a short delay (let Ctrl+V complete)
+	if oldClip != nil {
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			setClipboard(*oldClip)
+		}()
+	}
+
 	return nil
 }
 
@@ -108,6 +123,45 @@ func (p *windowsPaster) TypeText(text string) error {
 	)
 	if ret == 0 {
 		return fmt.Errorf("SendInput (unicode) failed: %v", err)
+	}
+	return nil
+}
+
+// getClipboardText reads the current clipboard text, returns nil if empty or non-text.
+func getClipboardText() *string {
+	ret, _, _ := procIsClipboardFormatAvailable.Call(cfUnicodeText)
+	if ret == 0 {
+		return nil
+	}
+
+	for i := 0; i < 5; i++ {
+		ret, _, _ := procOpenClipboard.Call(0)
+		if ret != 0 {
+			hMem, _, _ := procGetClipboardData.Call(cfUnicodeText)
+			if hMem == 0 {
+				procCloseClipboard.Call()
+				return nil
+			}
+
+			size, _, _ := procGlobalSize.Call(hMem)
+			if size == 0 {
+				procCloseClipboard.Call()
+				return nil
+			}
+
+			ptr, _, _ := procGlobalLock.Call(hMem)
+			if ptr == 0 {
+				procCloseClipboard.Call()
+				return nil
+			}
+
+			// Read UTF-16 string
+			text := syscall.UTF16ToString((*[1 << 20]uint16)(unsafe.Pointer(ptr))[:size/2])
+			procGlobalUnlock.Call(hMem)
+			procCloseClipboard.Call()
+			return &text
+		}
+		time.Sleep(30 * time.Millisecond)
 	}
 	return nil
 }
