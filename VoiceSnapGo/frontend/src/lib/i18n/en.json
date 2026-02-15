@@ -62,7 +62,10 @@
     "checkingUpdate": "Checking...",
     "isLatestVersion": "Up to date",
     "checkFailed": "Check failed",
-    "copyright": "© {year} VoiceSnap · MIT License"
+    "copyright": "© {year} VoiceSnap · MIT License",
+    "privacyOffline": "Fully offline · Voice never leaves your device",
+    "privacyNoAccount": "No account · No internet required",
+    "privacyOpenSource": "Open source · MIT License"
   },
   "history": {
     "title": "Recognition History",

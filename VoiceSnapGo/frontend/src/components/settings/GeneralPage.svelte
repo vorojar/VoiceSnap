@@ -63,7 +63,9 @@
     } catch {
       devices = []
     }
-    showDeviceDropdown = true
+    if (devices.length > 0) {
+      showDeviceDropdown = true
+    }
   }
 
   async function selectDevice(dev: InputDevice) {

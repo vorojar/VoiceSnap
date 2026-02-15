@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"voicesnap/internal/logger"
 	"voicesnap/internal/overlay"
 	"voicesnap/internal/sound"
+	"voicesnap/internal/textproc"
 	"voicesnap/services"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -138,6 +140,11 @@ func RunApp() error {
 
 	// Create native overlay indicator (Win32 layered window, per-pixel alpha)
 	app.indicator = overlay.New()
+	app.indicator.OnDragged(func(x, y int) {
+		app.cfg.IndicatorX = x
+		app.cfg.IndicatorY = y
+		config.Save(app.cfg)
+	})
 
 	// Create system tray
 	tray := wailsApp.SystemTray.New()
@@ -278,8 +285,8 @@ func (a *App) startRecordingLocked() {
 	a.hideGen.Add(1) // cancel any pending delayed hide
 
 	logger.Info("Recording started")
-	a.positionIndicatorCenter()
-	a.indicator.SetStatus(overlay.StatusRecording, "")
+	a.positionIndicator()
+	a.indicator.SetStatus(overlay.StatusRecording, "0:00")
 	a.indicator.Show()
 	if a.cfg.SoundFeedback {
 		sound.PlayStart()
@@ -290,6 +297,7 @@ func (a *App) startRecordingLocked() {
 		a.isRecording = false
 		return
 	}
+	a.startRecordingTimer(overlay.StatusRecording)
 }
 
 func (a *App) stopRecordingLocked(cancel bool) {
@@ -338,6 +346,8 @@ func (a *App) stopRecordingLocked(cancel bool) {
 			return
 		}
 
+		text = textproc.PostProcess(text)
+
 		if text == "" {
 			a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
 			a.delayedHide(1500)
@@ -381,8 +391,8 @@ func (a *App) startFreetalkLocked() {
 	a.hideGen.Add(1)
 
 	logger.Info("Free talk started")
-	a.positionIndicatorCenter()
-	a.indicator.SetStatus(overlay.StatusFreetalking, "说话中")
+	a.positionIndicator()
+	a.indicator.SetStatus(overlay.StatusFreetalking, "0:00")
 	a.indicator.Show()
 	if a.cfg.SoundFeedback {
 		sound.PlayStart()
@@ -394,6 +404,32 @@ func (a *App) startFreetalkLocked() {
 		a.isRecording = false
 		return
 	}
+	a.startRecordingTimer(overlay.StatusFreetalking)
+}
+
+// startRecordingTimer updates the indicator text with elapsed time every second.
+// It exits automatically when a.isRecording becomes false.
+func (a *App) startRecordingTimer(status overlay.Status) {
+	start := time.Now()
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-a.ctx.Done():
+				return
+			case <-ticker.C:
+				a.mu.Lock()
+				recording := a.isRecording
+				a.mu.Unlock()
+				if !recording {
+					return
+				}
+				d := time.Since(start)
+				a.indicator.SetStatus(status, fmt.Sprintf("%d:%02d", int(d.Minutes()), int(d.Seconds())%60))
+			}
+		}
+	}()
 }
 
 func (a *App) stopFreetalkLocked() {
@@ -431,6 +467,8 @@ func (a *App) stopFreetalkLocked() {
 			a.delayedHide(2000)
 			return
 		}
+
+		text = textproc.PostProcess(text)
 
 		if text == "" {
 			a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
@@ -505,15 +543,18 @@ func (a *App) initEngine() {
 
 	// Show indicator briefly
 	keyName := hotkey.GetKeyName(a.cfg.HotkeyVK)
-	a.positionIndicatorCenter()
+	a.positionIndicator()
 	a.indicator.SetStatus(overlay.StatusReady, "按住"+keyName+"说话")
 	a.indicator.Show()
 	a.delayedHide(2000)
 }
 
-// positionIndicatorCenter places the indicator at bottom-center of the primary screen,
-// 100px from the bottom edge — matching WPF behavior.
-func (a *App) positionIndicatorCenter() {
+// positionIndicator places the indicator at the saved position, or bottom-center if not saved.
+func (a *App) positionIndicator() {
+	if a.cfg.IndicatorX != 0 || a.cfg.IndicatorY != 0 {
+		a.indicator.SetPosition(a.cfg.IndicatorX, a.cfg.IndicatorY)
+		return
+	}
 	screen := a.wailsApp.Screen.GetPrimary()
 	if screen == nil {
 		return

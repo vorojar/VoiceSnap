@@ -27,6 +27,13 @@ const (
 	swpNoSize       = 0x0001
 	swpNoZOrder     = 0x0004
 	swpNoActivate   = 0x0010
+
+	// Window messages for drag
+	wmMove          = 0x0003
+	wmNCHitTest     = 0x0084
+	wmEnterSizeMove = 0x0231
+	wmExitSizeMove  = 0x0232
+	htCaption       = 2
 )
 
 // GDI+ constants
@@ -168,7 +175,31 @@ var (
 // f32 converts float32 to uintptr (for GDI+ flat API syscalls).
 func f32(v float32) uintptr { return uintptr(math.Float32bits(v)) }
 
-func defWndProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
+var gOverlay *winOverlay
+
+func overlayWndProc(hwnd uintptr, msg uint32, wp, lp uintptr) uintptr {
+	o := gOverlay
+	switch msg {
+	case wmNCHitTest:
+		return htCaption
+	case wmEnterSizeMove:
+		if o != nil {
+			o.dragging = true
+		}
+	case wmExitSizeMove:
+		if o != nil {
+			o.dragging = false
+			if o.dragCb != nil {
+				x, y := o.posX, o.posY
+				go o.dragCb(x, y)
+			}
+		}
+	case wmMove:
+		if o != nil && o.dragging {
+			o.posX = int(int16(lp & 0xFFFF))
+			o.posY = int(int16((lp >> 16) & 0xFFFF))
+		}
+	}
 	r, _, _ := uDefWindowProc.Call(hwnd, uintptr(msg), wp, lp)
 	return r
 }
@@ -207,6 +238,11 @@ type winOverlay struct {
 
 	barHeights [nBars]float64
 	animTime   float64
+
+	// Position & drag
+	posX, posY int
+	dragging   bool
+	dragCb     func(x, y int)
 }
 
 func New() Overlay {
@@ -230,6 +266,8 @@ func (o *winOverlay) Hide()                           { trySend(o.showCh, false)
 func (o *winOverlay) SetStatus(s Status, text string) { trySendS(o.statusCh, statusCmd{s, text}) }
 func (o *winOverlay) SetVolume(vol float64)           { trySendF(o.volCh, vol) }
 func (o *winOverlay) SetPosition(x, y int)            { trySendP(o.posCh, [2]int{x, y}) }
+func (o *winOverlay) GetPosition() (int, int)         { return o.posX, o.posY }
+func (o *winOverlay) OnDragged(fn func(x, y int))     { o.dragCb = fn }
 func (o *winOverlay) Close()                          { close(o.closeCh); <-o.done }
 
 func trySend(ch chan bool, v bool)          { select { case ch <- v: default: } }
@@ -250,19 +288,21 @@ func (o *winOverlay) run() {
 	gpStartup.Call(uintptr(unsafe.Pointer(&token)), uintptr(unsafe.Pointer(&si)), 0)
 	defer gpShutdown.Call(token)
 
+	gOverlay = o
+
 	// Register window class
 	hInst, _, _ := kGetModuleHandle.Call(0)
 	cls, _ := syscall.UTF16PtrFromString("VoiceSnapOverlay")
 	wc := wWndClassEx{
 		cbSize:    uint32(unsafe.Sizeof(wWndClassEx{})),
-		wndProc:   syscall.NewCallback(defWndProc),
+		wndProc:   syscall.NewCallback(overlayWndProc),
 		hInstance: hInst,
 		className: cls,
 	}
 	uRegisterClassEx.Call(uintptr(unsafe.Pointer(&wc)))
 
 	// Create layered window
-	exStyle := uintptr(wsExLayered | wsExTopmost | wsExToolWindow | wsExTransparent | wsExNoActivate)
+	exStyle := uintptr(wsExLayered | wsExTopmost | wsExToolWindow | wsExNoActivate)
 	hwnd, _, _ := uCreateWindowEx.Call(
 		exStyle, uintptr(unsafe.Pointer(cls)), 0, wsPopup,
 		0, 0, capW, capH, 0, 0, hInst, 0,
@@ -330,7 +370,6 @@ func (o *winOverlay) run() {
 		volumes      [nBars]float64
 		fadeProgress float64 // 0 = hidden, 1 = fully visible
 		fadeTarget   float64 // 0 or 1
-		posX, posY   int
 	)
 
 	ticker := time.NewTicker(33 * time.Millisecond) // ~30fps
@@ -371,8 +410,8 @@ func (o *winOverlay) run() {
 				copy(volumes[0:4], volumes[1:5])
 				volumes[4] = vol
 			case pos := <-o.posCh:
-				posX, posY = pos[0], pos[1]
-				uSetWindowPos.Call(hwnd, 0, uintptr(posX), uintptr(posY), 0, 0,
+				o.posX, o.posY = pos[0], pos[1]
+				uSetWindowPos.Call(hwnd, 0, uintptr(o.posX), uintptr(o.posY), 0, 0,
 					swpNoSize|swpNoZOrder|swpNoActivate)
 			default:
 				drain = false
@@ -412,15 +451,16 @@ func (o *winOverlay) run() {
 		// Ease-out curve for smoother feel
 		eased := fadeProgress * (2 - fadeProgress)
 
-		// Slide offset: float up on show, sink down on hide
-		slideY := int(float64(1.0-eased) * fadeSlide)
-		if slideY != 0 {
-			uSetWindowPos.Call(hwnd, 0, uintptr(posX), uintptr(posY+slideY), 0, 0,
-				swpNoSize|swpNoZOrder|swpNoActivate)
-		} else if fadeProgress >= 1.0 {
-			// Ensure final position is exact when fully visible
-			uSetWindowPos.Call(hwnd, 0, uintptr(posX), uintptr(posY), 0, 0,
-				swpNoSize|swpNoZOrder|swpNoActivate)
+		// Slide offset: float up on show, sink down on hide (skip during user drag)
+		if !o.dragging {
+			slideY := int(float64(1.0-eased) * fadeSlide)
+			if slideY != 0 {
+				uSetWindowPos.Call(hwnd, 0, uintptr(o.posX), uintptr(o.posY+slideY), 0, 0,
+					swpNoSize|swpNoZOrder|swpNoActivate)
+			} else if fadeProgress >= 1.0 {
+				uSetWindowPos.Call(hwnd, 0, uintptr(o.posX), uintptr(o.posY), 0, 0,
+					swpNoSize|swpNoZOrder|swpNoActivate)
+			}
 		}
 
 		alpha := byte(eased * 255)

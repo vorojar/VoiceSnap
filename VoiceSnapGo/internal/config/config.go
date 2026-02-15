@@ -13,6 +13,8 @@ type Config struct {
 	AutoHide                bool   `json:"AutoHide"`
 	SoundFeedback           bool   `json:"SoundFeedback"`
 	DeviceName              string `json:"DeviceName,omitempty"`
+	IndicatorX              int    `json:"IndicatorX,omitempty"`
+	IndicatorY              int    `json:"IndicatorY,omitempty"`
 	ModelDownloadUrl        string `json:"ModelDownloadUrl"`
 	FallbackModelDownloadUrl string `json:"FallbackModelDownloadUrl"`
 }

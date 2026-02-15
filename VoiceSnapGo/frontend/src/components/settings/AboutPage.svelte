@@ -53,6 +53,30 @@
         {updateStatus}
       </p>
     {/if}
+
+    <div class="privacy">
+      <div class="privacy-item">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1L2.5 3.5V6.5C2.5 9.5 4.5 12 7 13C9.5 12 11.5 9.5 11.5 6.5V3.5L7 1Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          <path d="M5 7L6.5 8.5L9 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>{t('about.privacyOffline')}</span>
+      </div>
+      <div class="privacy-item">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect x="3" y="6.5" width="8" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M5 6.5V4.5C5 3.4 5.9 2.5 7 2.5C8.1 2.5 9 3.4 9 4.5V6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <span>{t('about.privacyNoAccount')}</span>
+      </div>
+      <div class="privacy-item">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M5 4L2 7L5 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 4L12 7L9 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>{t('about.privacyOpenSource')}</span>
+      </div>
+    </div>
   </div>
 
   <div class="bottom">
@@ -138,6 +162,25 @@
   .update-status.green { color: var(--color-green); }
   .update-status.red { color: var(--color-red); }
   .update-status.blue { color: var(--color-blue); }
+
+  .privacy {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 32px;
+  }
+
+  .privacy-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-tertiary-label);
+    font-size: var(--font-size-xs);
+  }
+
+  .privacy-item svg {
+    flex-shrink: 0;
+  }
 
   .bottom {
     position: absolute;

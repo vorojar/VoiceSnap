@@ -62,7 +62,10 @@
     "checkingUpdate": "正在检查...",
     "isLatestVersion": "已是最新版本",
     "checkFailed": "检查失败",
-    "copyright": "© {year} VoiceSnap · MIT License"
+    "copyright": "© {year} VoiceSnap · MIT License",
+    "privacyOffline": "完全离线 · 语音数据不离开设备",
+    "privacyNoAccount": "无需注册 · 无需联网",
+    "privacyOpenSource": "开源代码 · MIT 协议"
   },
   "history": {
     "title": "识别历史",

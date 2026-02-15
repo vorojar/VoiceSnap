@@ -24,5 +24,7 @@ type Overlay interface {
 	SetStatus(status Status, text string)
 	SetVolume(vol float64)
 	SetPosition(x, y int)
+	GetPosition() (int, int)
+	OnDragged(fn func(x, y int))
 	Close()
 }

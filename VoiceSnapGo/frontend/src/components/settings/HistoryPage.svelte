@@ -11,6 +11,7 @@
   let retentionDays = $state(30)
   let copiedTs = $state<number | null>(null)
   let showConfirm = $state(false)
+  let showRetention = $state(false)
 
   const retentionOptions = [
     { value: 7, label: () => t('history.days7') },
@@ -18,6 +19,11 @@
     { value: 90, label: () => t('history.days90') },
     { value: 0, label: () => t('history.forever') },
   ]
+
+  function currentRetentionLabel(): string {
+    const opt = retentionOptions.find(o => o.value === retentionDays)
+    return opt ? opt.label() : t('history.days30')
+  }
 
   async function loadHistory() {
     try {
@@ -34,6 +40,7 @@
 
   async function setRetention(days: number) {
     retentionDays = days
+    showRetention = false
     try {
       await Call.ByName('voicesnap/services.HistoryService.SetRetentionDays', days)
       await loadHistory()
@@ -84,27 +91,63 @@
     return `${month}/${day} ${time}`
   }
 
+  function closeDropdowns(e: MouseEvent) {
+    const target = e.target as HTMLElement
+    if (!target.closest('.retention-selector')) {
+      showRetention = false
+    }
+  }
+
   // Load on mount
   loadHistory()
 </script>
 
-<div class="page">
-  <!-- Retention setting -->
-  <div class="section retention-section">
-    <div class="setting-row">
-      <span class="setting-label">{t('history.retention')}</span>
-      <div class="retention-pills">
-        {#each retentionOptions as opt}
-          <button
-            class="pill"
-            class:active={retentionDays === opt.value}
-            onclick={() => setRetention(opt.value)}
-          >
-            {opt.label()}
-          </button>
-        {/each}
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="page" onclick={closeDropdowns}>
+  <!-- Toolbar: retention + clear all -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="toolbar-label">{t('history.retention')}</span>
+      <div class="retention-selector">
+        <button class="retention-btn" onclick={() => showRetention = !showRetention}>
+          <span>{currentRetentionLabel()}</span>
+          <svg class="chevron" class:open={showRetention} width="10" height="6" viewBox="0 0 10 6" fill="none">
+            <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        {#if showRetention}
+          <div class="retention-dropdown">
+            {#each retentionOptions as opt}
+              <button
+                class="retention-option"
+                class:selected={retentionDays === opt.value}
+                onclick={() => setRetention(opt.value)}
+              >
+                {opt.label()}
+                {#if retentionDays === opt.value}
+                  <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
+                    <path d="M1 4L4.5 7.5L11 1" stroke="var(--color-blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
+
+    {#if entries.length > 0}
+      <div class="toolbar-right">
+        {#if showConfirm}
+          <span class="confirm-text">{t('history.clearConfirm')}</span>
+          <button class="clear-btn confirm" onclick={clearAll}>{t('history.clearAll')}</button>
+          <button class="cancel-btn" onclick={() => showConfirm = false}>&times;</button>
+        {:else}
+          <button class="clear-btn" onclick={() => showConfirm = true}>{t('history.clearAll')}</button>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <!-- History list -->
@@ -147,71 +190,160 @@
       {/each}
     {/if}
   </div>
-
-  <!-- Clear all -->
-  {#if entries.length > 0}
-    <div class="footer">
-      {#if showConfirm}
-        <span class="confirm-text">{t('history.clearConfirm')}</span>
-        <button class="clear-btn confirm" onclick={clearAll}>{t('history.clearAll')}</button>
-        <button class="cancel-btn" onclick={() => showConfirm = false}>×</button>
-      {:else}
-        <button class="clear-btn" onclick={() => showConfirm = true}>{t('history.clearAll')}</button>
-      {/if}
-    </div>
-  {/if}
 </div>
 
 <style>
+  .page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 40px);
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+    padding: 0 2px;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toolbar-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-secondary-label);
+  }
+
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Retention dropdown */
+  .retention-selector {
+    position: relative;
+  }
+
+  .retention-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 0;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-blue);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+  }
+
+  .retention-btn:hover { opacity: 0.65; }
+
+  .chevron {
+    color: var(--color-tertiary-label);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .retention-dropdown {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 4px);
+    min-width: 120px;
+    background: var(--color-bg-grouped-secondary);
+    border: 1px solid var(--color-separator);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .retention-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 12px;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-label);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+  }
+
+  .retention-option:hover {
+    background: var(--color-bg-secondary);
+  }
+
+  .retention-option.selected {
+    color: var(--color-blue);
+    font-weight: 500;
+  }
+
+  .retention-option + .retention-option {
+    border-top: 1px solid var(--color-separator);
+  }
+
+  /* Clear all */
+  .clear-btn {
+    padding: 3px 0;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-sm);
+    color: var(--color-tertiary-label);
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .clear-btn:hover {
+    color: var(--color-red);
+  }
+
+  .clear-btn.confirm {
+    color: var(--color-red);
+    font-weight: 500;
+  }
+
+  .confirm-text {
+    font-size: var(--font-size-xs);
+    color: var(--color-secondary-label);
+  }
+
+  .cancel-btn {
+    padding: 0 4px;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-base);
+    color: var(--color-tertiary-label);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .cancel-btn:hover { color: var(--color-label); }
+
+  /* List */
   .section {
     background: var(--color-bg-grouped-secondary);
     border-radius: var(--radius-md);
     padding: var(--spacing-lg);
-    margin-bottom: var(--spacing-md);
   }
 
-  /* Retention */
-  .retention-section .setting-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .setting-label {
-    font-size: var(--font-size-base);
-    font-weight: 500;
-  }
-
-  .retention-pills {
-    display: flex;
-    gap: 6px;
-  }
-
-  .pill {
-    padding: 4px 12px;
-    border-radius: 14px;
-    border: 1px solid var(--color-separator);
-    background: transparent;
-    font-size: var(--font-size-xs);
-    color: var(--color-secondary-label);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .pill:hover {
-    border-color: var(--color-blue);
-    color: var(--color-blue);
-  }
-
-  .pill.active {
-    background: var(--color-blue);
-    border-color: var(--color-blue);
-    color: #fff;
-  }
-
-  /* List */
   .list-section {
-    max-height: calc(100vh - 200px);
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -306,48 +438,4 @@
     height: 1px;
     background: var(--color-separator);
   }
-
-  /* Footer */
-  .footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 4px 0;
-  }
-
-  .confirm-text {
-    font-size: var(--font-size-xs);
-    color: var(--color-secondary-label);
-    margin-right: auto;
-  }
-
-  .clear-btn {
-    padding: 4px 0;
-    background: transparent;
-    border: none;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--color-red);
-    cursor: pointer;
-    opacity: 0.8;
-    transition: opacity 0.15s ease;
-  }
-
-  .clear-btn:hover { opacity: 1; }
-
-  .clear-btn.confirm {
-    opacity: 1;
-  }
-
-  .cancel-btn {
-    padding: 2px 6px;
-    background: transparent;
-    border: none;
-    font-size: var(--font-size-base);
-    color: var(--color-tertiary-label);
-    cursor: pointer;
-  }
-
-  .cancel-btn:hover { color: var(--color-label); }
 </style>
