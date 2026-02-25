@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	appVersion = "2.0.0"
+	appVersion = "2.1.0"
 	appName    = "VoiceSnap"
 
 	silenceThreshold       = 0.02           // RMS below this = silence
