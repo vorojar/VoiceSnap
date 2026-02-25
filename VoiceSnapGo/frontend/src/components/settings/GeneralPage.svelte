@@ -7,8 +7,8 @@
   import { hotkeyName } from '../../lib/stores/indicator'
 
   interface InputDevice {
-    Name: string
-    IsDefault: boolean
+    name: string
+    isDefault: boolean
   }
 
   let autoHideVal = $state(true)
@@ -30,6 +30,37 @@
   const unsub5 = engineHardwareInfo.subscribe(v => { hwInfo = v })
   const unsub6 = hotkeyName.subscribe(k => { currentKeyName = k })
   const unsub7 = soundFeedback.subscribe(v => { soundFeedbackVal = v })
+
+  // Load actual device name from backend on mount
+  async function loadDeviceName() {
+    try {
+      const name: any = await Call.ByName('voicesnap/services.AudioService.GetDeviceName')
+      if (name) {
+        device = name
+        deviceName.set(name)
+      }
+    } catch {}
+  }
+  loadDeviceName()
+
+  async function loadSettings() {
+    try {
+      const isStartup: any = await Call.ByName('voicesnap/services.ConfigService.IsStartupEnabled')
+      startAtLogin.set(!!isStartup)
+      startAtLoginVal = !!isStartup
+    } catch {}
+    try {
+      const ah: any = await Call.ByName('voicesnap/services.ConfigService.GetAutoHide')
+      autoHide.set(ah)
+      autoHideVal = ah
+    } catch {}
+    try {
+      const sf: any = await Call.ByName('voicesnap/services.ConfigService.GetSoundFeedback')
+      soundFeedback.set(sf)
+      soundFeedbackVal = sf
+    } catch {}
+  }
+  loadSettings()
 
   async function onAutoHideChange(checked: boolean) {
     autoHide.set(checked)
@@ -70,10 +101,10 @@
 
   async function selectDevice(dev: InputDevice) {
     showDeviceDropdown = false
-    device = dev.Name
-    deviceName.set(dev.Name)
+    device = dev.name
+    deviceName.set(dev.name)
     try {
-      await Call.ByName('voicesnap/services.AudioService.SetDevice', dev.Name)
+      await Call.ByName('voicesnap/services.AudioService.SetDevice', dev.name)
     } catch {}
   }
 
@@ -214,11 +245,11 @@
             {#each devices as dev}
               <button
                 class="device-option"
-                class:selected={dev.Name === device}
+                class:selected={dev.name === device}
                 onclick={() => selectDevice(dev)}
               >
-                {dev.Name}
-                {#if dev.Name === device}
+                {dev.name}
+                {#if dev.name === device}
                   <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
                     <path d="M1 4L4.5 7.5L11 1" stroke="var(--color-blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>

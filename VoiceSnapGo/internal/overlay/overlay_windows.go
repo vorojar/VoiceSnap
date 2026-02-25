@@ -172,6 +172,29 @@ var (
 	gpMeasureString    = gdipDLL.NewProc("GdipMeasureString")
 )
 
+// getSystemDPI returns the system DPI (96 = 100%, 120 = 125%, 144 = 150%, 192 = 200%).
+func getSystemDPI() int {
+	// Try GetDpiForSystem (Win10 1607+, user32.dll)
+	proc := user32.NewProc("GetDpiForSystem")
+	if err := proc.Find(); err == nil {
+		dpi, _, _ := proc.Call()
+		if dpi > 0 {
+			return int(dpi)
+		}
+	}
+	// Fallback: GetDeviceCaps(LOGPIXELSX) — works on all Windows versions
+	hdc, _, _ := uGetDC.Call(0)
+	if hdc != 0 {
+		defer uReleaseDC.Call(0, hdc)
+		getDeviceCaps := gdi32.NewProc("GetDeviceCaps")
+		dpi, _, _ := getDeviceCaps.Call(hdc, 88) // LOGPIXELSX = 88
+		if dpi > 0 {
+			return int(dpi)
+		}
+	}
+	return 96
+}
+
 // f32 converts float32 to uintptr (for GDI+ flat API syscalls).
 func f32(v float32) uintptr { return uintptr(math.Float32bits(v)) }
 
@@ -243,6 +266,16 @@ type winOverlay struct {
 	posX, posY int
 	dragging   bool
 	dragCb     func(x, y int)
+
+	// DPI-scaled dimensions (set once in run())
+	scale   float64
+	sW, sH  int32   // scaled window width, height
+	sCapR   float64 // scaled corner radius
+	sBarW   float64 // scaled bar width
+	sBarGap float64 // scaled bar gap
+	sBarR   float64 // scaled bar radius
+	sTxtSz  float32 // scaled font size
+	sTxtGap float64 // scaled text gap
 }
 
 func New() Overlay {
@@ -290,6 +323,17 @@ func (o *winOverlay) run() {
 
 	gOverlay = o
 
+	// Compute DPI-scaled dimensions
+	o.scale = float64(getSystemDPI()) / 96.0
+	o.sW = int32(math.Round(float64(capW) * o.scale))
+	o.sH = int32(math.Round(float64(capH) * o.scale))
+	o.sCapR = capR * o.scale
+	o.sBarW = barW * o.scale
+	o.sBarGap = barGap * o.scale
+	o.sBarR = barR * o.scale
+	o.sTxtSz = float32(txtSz * o.scale)
+	o.sTxtGap = txtGap * o.scale
+
 	// Register window class
 	hInst, _, _ := kGetModuleHandle.Call(0)
 	cls, _ := syscall.UTF16PtrFromString("VoiceSnapOverlay")
@@ -305,7 +349,7 @@ func (o *winOverlay) run() {
 	exStyle := uintptr(wsExLayered | wsExTopmost | wsExToolWindow | wsExNoActivate)
 	hwnd, _, _ := uCreateWindowEx.Call(
 		exStyle, uintptr(unsafe.Pointer(cls)), 0, wsPopup,
-		0, 0, capW, capH, 0, 0, hInst, 0,
+		0, 0, uintptr(o.sW), uintptr(o.sH), 0, 0, hInst, 0,
 	)
 	if hwnd == 0 {
 		return
@@ -320,8 +364,8 @@ func (o *winOverlay) run() {
 
 	bi := wBmpInfo{hdr: wBmpInfoHdr{
 		biSize:   int32(unsafe.Sizeof(wBmpInfoHdr{})),
-		biWidth:  capW,
-		biHeight: -capH, // top-down
+		biWidth:  o.sW,
+		biHeight: -o.sH, // top-down
 		biPlanes: 1, biBitCount: 32,
 	}}
 	var bits unsafe.Pointer
@@ -337,7 +381,7 @@ func (o *winOverlay) run() {
 	fn, _ := syscall.UTF16PtrFromString("Segoe UI")
 	gpCreateFontFamily.Call(uintptr(unsafe.Pointer(fn)), 0, uintptr(unsafe.Pointer(&fontFamily)))
 	if fontFamily != 0 {
-		gpCreateFont.Call(fontFamily, f32(txtSz), fontStyleRegular, unitPixel, uintptr(unsafe.Pointer(&font)))
+		gpCreateFont.Call(fontFamily, f32(o.sTxtSz), fontStyleRegular, unitPixel, uintptr(unsafe.Pointer(&font)))
 	}
 	gpCreateStrFmt.Call(0, 0, uintptr(unsafe.Pointer(&strFmt)))
 	if strFmt != 0 {
@@ -474,16 +518,17 @@ func (o *winOverlay) run() {
 // ---- Animation ----
 
 func (o *winOverlay) animate(status Status, volumes [nBars]float64) {
+	s := o.scale
 	t := o.animTime
 	switch status {
 	case StatusLoading:
 		for i := 0; i < nBars; i++ {
 			pulse := math.Sin(t*2+float64(i)*0.3)*0.5 + 0.5
-			o.barHeights[i] = 10 + pulse*20
+			o.barHeights[i] = (10 + pulse*20) * s
 		}
 	case StatusReady, StatusDone:
 		for i := 0; i < nBars; i++ {
-			o.barHeights[i] = o.barHeights[i]*0.85 + 14*0.15
+			o.barHeights[i] = o.barHeights[i]*0.85 + 14*s*0.15
 		}
 	case StatusRecording, StatusFreetalking:
 		hasReal := false
@@ -496,22 +541,22 @@ func (o *winOverlay) animate(status Status, volumes [nBars]float64) {
 		for i := 0; i < nBars; i++ {
 			var target float64
 			if hasReal {
-				target = 8 + volumes[i]*32
+				target = (8 + volumes[i]*32) * s
 			} else {
 				wave := math.Sin(t*4+float64(i)*0.8)*0.5 + 0.5
 				rnd := math.Sin(t*7+float64(i)*1.5) * 0.3
-				target = 10 + (wave+rnd)*25
+				target = (10 + (wave+rnd)*25) * s
 			}
 			o.barHeights[i] = o.barHeights[i]*0.6 + target*0.4
 		}
 	case StatusProcessing:
 		for i := 0; i < nBars; i++ {
 			wave := math.Sin(t*3+float64(i)*0.6)*0.5 + 0.5
-			o.barHeights[i] = 12 + wave*18
+			o.barHeights[i] = (12 + wave*18) * s
 		}
 	default:
 		for i := 0; i < nBars; i++ {
-			o.barHeights[i] = o.barHeights[i]*0.85 + 14*0.15
+			o.barHeights[i] = o.barHeights[i]*0.85 + 14*s*0.15
 		}
 	}
 }
@@ -531,46 +576,46 @@ func (o *winOverlay) renderFrame(memDC, hwnd, screenDC, font, strFmt uintptr, ba
 	gpClear.Call(gfx, 0) // transparent
 
 	// Capsule background
-	fillRoundRect(gfx, 0, 0, capW, capH, capR, clrCapsuleBG)
+	fillRoundRect(gfx, 0, 0, float64(o.sW), float64(o.sH), o.sCapR, clrCapsuleBG)
 
 	// Inner border
-	strokeRoundRect(gfx, 0.5, 0.5, capW-1, capH-1, capR-0.5, clrBorder, 1)
+	strokeRoundRect(gfx, 0.5, 0.5, float64(o.sW)-1, float64(o.sH)-1, o.sCapR-0.5, clrBorder, 1)
 
 	// Layout: bars + optional text, centered
-	barsW := float32(nBars*barW + (nBars-1)*barGap) // 41px
+	barsW := float32(float64(nBars)*o.sBarW + float64(nBars-1)*o.sBarGap)
 	var textW float32
 	if text != "" && font != 0 {
 		textW = measureText(gfx, font, strFmt, text)
 	}
 	totalW := barsW
 	if textW > 0 {
-		totalW += float32(txtGap) + textW
+		totalW += float32(o.sTxtGap) + textW
 	}
-	startX := (float32(capW) - totalW) / 2
+	startX := (float32(o.sW) - totalW) / 2
 
 	// Bars
 	for i := 0; i < nBars; i++ {
-		bx := startX + float32(i*(barW+barGap))
+		bx := startX + float32(float64(i)*(o.sBarW+o.sBarGap))
 		bh := float32(o.barHeights[i])
-		if bh < 6 {
-			bh = 6
+		if bh < float32(6*o.scale) {
+			bh = float32(6 * o.scale)
 		}
-		if bh > 40 {
-			bh = 40
+		if bh > float32(40*o.scale) {
+			bh = float32(40 * o.scale)
 		}
-		by := (float32(capH) - bh) / 2
-		fillRoundRect(gfx, float64(bx), float64(by), float64(barW), float64(bh), barR, barClr)
+		by := (float32(o.sH) - bh) / 2
+		fillRoundRect(gfx, float64(bx), float64(by), o.sBarW, float64(bh), o.sBarR, barClr)
 	}
 
 	// Text
 	if text != "" && font != 0 && strFmt != 0 {
-		tx := startX + barsW + float32(txtGap)
-		drawText(gfx, font, strFmt, text, tx, 0, textW+4, capH, clrText)
+		tx := startX + barsW + float32(o.sTxtGap)
+		drawText(gfx, font, strFmt, text, tx, 0, textW+4, float32(o.sH), clrText)
 	}
 
 	// UpdateLayeredWindow
 	ptSrc := wPoint{0, 0}
-	sz := wSize{capW, capH}
+	sz := wSize{o.sW, o.sH}
 	blend := wBlend{op: acSrcOver, srcAlpha: alpha, alphaFmt: acSrcAlpha}
 	uUpdateLayeredWin.Call(hwnd, screenDC, 0, uintptr(unsafe.Pointer(&sz)),
 		memDC, uintptr(unsafe.Pointer(&ptSrc)), 0, uintptr(unsafe.Pointer(&blend)), ulwAlpha)

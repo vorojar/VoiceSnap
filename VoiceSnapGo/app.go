@@ -26,6 +26,10 @@ import (
 const (
 	appVersion = "2.0.0"
 	appName    = "VoiceSnap"
+
+	silenceThreshold       = 0.02           // RMS below this = silence
+	silenceTimeoutDuration = 3 * time.Second // auto-stop after this much silence in free-talk
+	silenceGracePeriod     = 2 * time.Second // don't auto-stop within first 2s of free-talk
 )
 
 // App holds all application state and orchestration logic.
@@ -55,6 +59,8 @@ type App struct {
 	isRecordingHotkey bool
 	hideGen           atomic.Uint64
 	lastStopTime      time.Time
+	silenceSince      time.Time // when continuous silence started (free-talk only)
+	freeTalkStart     time.Time // when free-talk mode started
 }
 
 func RunApp() error {
@@ -178,9 +184,10 @@ func RunApp() error {
 	// Initialize engine asynchronously
 	go app.initEngine()
 
-	// Volume callback → native overlay
+	// Volume callback → native overlay + silence auto-stop
 	app.recorder.OnVolume(func(vol float64) {
 		app.indicator.SetVolume(vol)
+		app.checkSilenceTimeout(vol)
 	})
 
 	// Device change callback
@@ -190,6 +197,9 @@ func RunApp() error {
 
 	// Store services references for orchestration callbacks
 	appService.SetApp(app)
+	hotkeyService.SetApp(app)
+	engineService.SetApp(wailsApp)
+	engineService.SetInitCallback(app.initEngine)
 
 	logger.Info("Application initialized, starting Wails")
 	return wailsApp.Run()
@@ -322,64 +332,7 @@ func (a *App) stopRecordingLocked(cancel bool) {
 	samples := a.recorder.StopAndGetSamples()
 
 	a.indicator.SetStatus(overlay.StatusProcessing, "识别中")
-
-	// Run recognition in background
-	go func() {
-		if !hasVoice {
-			logger.Info("No voice activity detected")
-			a.indicator.SetStatus(overlay.StatusNoVoice, "无语音")
-			a.delayedHide(1500)
-			return
-		}
-
-		if samples == nil || len(samples) == 0 {
-			a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
-			a.delayedHide(1500)
-			return
-		}
-
-		text, err := a.eng.Recognize(samples)
-		if err != nil {
-			logger.Error("Recognition failed: %v", err)
-			a.indicator.SetStatus(overlay.StatusError, "错误")
-			a.delayedHide(2000)
-			return
-		}
-
-		text = textproc.PostProcess(text)
-
-		if text == "" {
-			a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
-			a.delayedHide(1500)
-			return
-		}
-
-		logger.Info("Recognized: %s", text)
-		a.history.Add(text)
-
-		// Wait for hotkey to be fully released (max 500ms)
-		for i := 0; i < 50; i++ {
-			if !a.hk.IsKeyDown(a.cfg.HotkeyVK) {
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-		time.Sleep(50 * time.Millisecond)
-
-		// Paste text
-		if err := a.paster.Paste(text); err != nil {
-			logger.Error("Paste failed, trying fallback: %v", err)
-			if err := a.paster.TypeText(text); err != nil {
-				logger.Error("Fallback type also failed: %v", err)
-			}
-		}
-
-		a.indicator.SetStatus(overlay.StatusDone, "完成")
-		if a.cfg.SoundFeedback {
-			sound.PlayDone()
-		}
-		a.delayedHide(2000)
-	}()
+	go a.recognizeAndPaste(hasVoice, samples)
 }
 
 func (a *App) startFreetalkLocked() {
@@ -388,6 +341,8 @@ func (a *App) startFreetalkLocked() {
 	}
 	a.isFreetalking = true
 	a.isRecording = true
+	a.freeTalkStart = time.Now()
+	a.silenceSince = time.Time{}
 	a.hideGen.Add(1)
 
 	logger.Info("Free talk started")
@@ -412,7 +367,7 @@ func (a *App) startFreetalkLocked() {
 func (a *App) startRecordingTimer(status overlay.Status) {
 	start := time.Now()
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -445,62 +400,105 @@ func (a *App) stopFreetalkLocked() {
 
 	logger.Info("Free talk stopped")
 	a.indicator.SetStatus(overlay.StatusProcessing, "识别中")
+	go a.recognizeAndPaste(hasVoice, samples)
+}
 
-	go func() {
-		if !hasVoice {
-			logger.Info("No voice activity detected")
-			a.indicator.SetStatus(overlay.StatusNoVoice, "无语音")
-			a.delayedHide(1500)
-			return
-		}
+// checkSilenceTimeout monitors volume during free-talk mode and auto-stops
+// recording if silence persists for silenceTimeoutDuration.
+// Called from the audio volume callback (~every 50ms).
+func (a *App) checkSilenceTimeout(vol float64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
-		if samples == nil || len(samples) == 0 {
-			a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
-			a.delayedHide(1500)
-			return
-		}
+	if !a.isFreetalking {
+		a.silenceSince = time.Time{}
+		return
+	}
 
-		text, err := a.eng.Recognize(samples)
-		if err != nil {
-			logger.Error("Recognition failed: %v", err)
-			a.indicator.SetStatus(overlay.StatusError, "错误")
-			a.delayedHide(2000)
-			return
-		}
+	// Grace period: don't auto-stop in the first 2 seconds
+	if time.Since(a.freeTalkStart) < silenceGracePeriod {
+		return
+	}
 
-		text = textproc.PostProcess(text)
+	if vol > silenceThreshold {
+		a.silenceSince = time.Time{} // voice detected, reset
+		return
+	}
 
-		if text == "" {
-			a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
-			a.delayedHide(1500)
-			return
-		}
+	// Silence detected
+	if a.silenceSince.IsZero() {
+		a.silenceSince = time.Now()
+		return
+	}
 
-		logger.Info("Recognized (free talk): %s", text)
-		a.history.Add(text)
+	if time.Since(a.silenceSince) >= silenceTimeoutDuration {
+		logger.Info("Silence timeout in free talk mode, auto-stopping")
+		a.silenceSince = time.Time{}
+		a.stopFreetalkLocked()
+	}
+}
 
-		// Wait for hotkey to be fully released (max 500ms)
-		for i := 0; i < 50; i++ {
-			if !a.hk.IsKeyDown(a.cfg.HotkeyVK) {
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-		time.Sleep(50 * time.Millisecond)
+// recognizeAndPaste runs ASR on the recorded samples and pastes the result.
+// Shared by both hold-to-talk and free-talk modes.
+func (a *App) recognizeAndPaste(hasVoice bool, samples []float32) {
+	if !hasVoice {
+		logger.Info("No voice activity detected")
+		a.indicator.SetStatus(overlay.StatusNoVoice, "无语音")
+		a.delayedHide(1500)
+		return
+	}
 
-		if err := a.paster.Paste(text); err != nil {
-			logger.Error("Paste failed, trying fallback: %v", err)
-			if err := a.paster.TypeText(text); err != nil {
-				logger.Error("Fallback type also failed: %v", err)
-			}
-		}
+	if len(samples) == 0 {
+		a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
+		a.delayedHide(1500)
+		return
+	}
 
-		a.indicator.SetStatus(overlay.StatusDone, "完成")
-		if a.cfg.SoundFeedback {
-			sound.PlayDone()
-		}
+	text, err := a.eng.Recognize(samples)
+	if err != nil {
+		logger.Error("Recognition failed: %v", err)
+		a.indicator.SetStatus(overlay.StatusError, "错误")
 		a.delayedHide(2000)
-	}()
+		return
+	}
+
+	text = textproc.PostProcess(text)
+
+	if text == "" {
+		a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
+		a.delayedHide(1500)
+		return
+	}
+
+	logger.Info("Recognized: %s", text)
+	a.history.Add(text)
+
+	a.waitForHotkeyRelease()
+
+	if err := a.paster.Paste(text); err != nil {
+		logger.Error("Paste failed, trying fallback: %v", err)
+		if err := a.paster.TypeText(text); err != nil {
+			logger.Error("Fallback type also failed: %v", err)
+		}
+	}
+
+	a.indicator.SetStatus(overlay.StatusDone, "完成")
+	if a.cfg.SoundFeedback {
+		sound.PlayDone()
+	}
+	a.delayedHide(2000)
+}
+
+// waitForHotkeyRelease polls until the hotkey is released (max 500ms),
+// then waits an additional 50ms settling delay.
+func (a *App) waitForHotkeyRelease() {
+	for i := 0; i < 50; i++ {
+		if !a.hk.IsKeyDown(a.cfg.HotkeyVK) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	time.Sleep(50 * time.Millisecond)
 }
 
 func (a *App) delayedHide(delayMs int) {
@@ -603,6 +601,10 @@ func (a *App) SetRecordingHotkey(recording bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.isRecordingHotkey = recording
+	if !recording {
+		a.hotkeyActive = false
+		a.lastStopTime = time.Now()
+	}
 }
 
 // UpdateHotkeyVK updates the hotkey virtual key code.

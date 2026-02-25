@@ -34,7 +34,7 @@
     }
     try {
       const days: any = await Call.ByName('voicesnap/services.HistoryService.GetRetentionDays')
-      retentionDays = days || 30
+      retentionDays = (days !== null && days !== undefined) ? days : 30
     } catch {}
   }
 

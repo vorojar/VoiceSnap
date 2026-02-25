@@ -1,5 +1,7 @@
 package hotkey
 
+import "fmt"
+
 // Listener provides hotkey state polling functionality.
 type Listener interface {
 	// IsKeyDown returns true if the given virtual key is currently pressed.
@@ -56,7 +58,7 @@ func GetKeyName(vk int) string {
 			return string(rune(vk))
 		}
 		if vk >= 0x70 && vk <= 0x7B {
-			return "F" + string(rune('1'+vk-0x70))
+			return fmt.Sprintf("F%d", vk-0x70+1)
 		}
 		return "Unknown"
 	}

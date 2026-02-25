@@ -26,7 +26,7 @@ type Store struct {
 }
 
 type fileData struct {
-	RetentionDays int     `json:"retentionDays"`
+	RetentionDays *int    `json:"retentionDays"`
 	Entries       []Entry `json:"entries"`
 }
 
@@ -147,14 +147,15 @@ func (s *Store) load() {
 	}
 
 	s.entries = fd.Entries
-	if fd.RetentionDays > 0 {
-		s.retentionDays = fd.RetentionDays
+	if fd.RetentionDays != nil {
+		s.retentionDays = *fd.RetentionDays
 	}
 }
 
 func (s *Store) save() {
+	days := s.retentionDays
 	fd := fileData{
-		RetentionDays: s.retentionDays,
+		RetentionDays: &days,
 		Entries:       s.entries,
 	}
 
