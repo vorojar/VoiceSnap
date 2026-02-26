@@ -224,9 +224,9 @@ func (r *Recorder) stopDevice() {
 
 func (r *Recorder) onData(input []byte) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	if !r.isRecording {
+		r.mu.Unlock()
 		return
 	}
 
@@ -236,6 +236,7 @@ func (r *Recorder) onData(input []byte) {
 	// Calculate RMS volume
 	numSamples := len(input) / 2
 	if numSamples == 0 {
+		r.mu.Unlock()
 		return
 	}
 
@@ -253,7 +254,11 @@ func (r *Recorder) onData(input []byte) {
 		r.maxVolume = volume
 	}
 
-	if r.volumeCallback != nil {
-		r.volumeCallback(volume)
+	cb := r.volumeCallback
+	r.mu.Unlock()
+
+	// Invoke callback outside lock to prevent deadlock with app mutex
+	if cb != nil {
+		cb(volume)
 	}
 }

@@ -27,7 +27,7 @@ const (
 	appVersion = "2.1.0"
 	appName    = "VoiceSnap"
 
-	silenceThreshold       = 0.02           // RMS below this = silence
+	silenceThreshold       = 0.05           // RMS below this = silence (matches HasVoiceActivity)
 	silenceTimeoutDuration = 3 * time.Second // auto-stop after this much silence in free-talk
 	silenceGracePeriod     = 2 * time.Second // don't auto-stop within first 2s of free-talk
 )
@@ -434,23 +434,49 @@ func (a *App) checkSilenceTimeout(vol float64) {
 	if time.Since(a.silenceSince) >= silenceTimeoutDuration {
 		logger.Info("Silence timeout in free talk mode, auto-stopping")
 		a.silenceSince = time.Time{}
-		a.stopFreetalkLocked()
+		// Mark state immediately to prevent re-triggering from subsequent callbacks
+		// and to block pollHotkey from starting a new recording before the device stops.
+		a.isFreetalking = false
+		a.isRecording = false
+		a.lastStopTime = time.Now()
+		// MUST stop device in a separate goroutine: we are inside the audio
+		// data callback, and device.Stop() waits for in-flight callbacks to
+		// finish — calling it here would deadlock.
+		go a.silenceAutoStop()
 	}
+}
+
+// silenceAutoStop performs the actual device stop and ASR after a silence timeout.
+// Runs in its own goroutine to avoid deadlocking the audio callback thread.
+func (a *App) silenceAutoStop() {
+	hasVoice := a.recorder.HasVoiceActivity()
+	samples := a.recorder.StopAndGetSamples()
+
+	logger.Info("Free talk stopped (silence auto-stop)")
+	a.indicator.SetStatus(overlay.StatusProcessing, "识别中")
+	a.recognizeAndPaste(hasVoice, samples)
 }
 
 // recognizeAndPaste runs ASR on the recorded samples and pastes the result.
 // Shared by both hold-to-talk and free-talk modes.
 func (a *App) recognizeAndPaste(hasVoice bool, samples []float32) {
+	// Snapshot config values under lock to avoid data races
+	a.mu.Lock()
+	soundFeedback := a.cfg.SoundFeedback
+	hotkeyVK := a.cfg.HotkeyVK
+	autoHide := a.cfg.AutoHide
+	a.mu.Unlock()
+
 	if !hasVoice {
 		logger.Info("No voice activity detected")
 		a.indicator.SetStatus(overlay.StatusNoVoice, "无语音")
-		a.delayedHide(1500)
+		a.delayedHideIf(autoHide, 1500)
 		return
 	}
 
 	if len(samples) == 0 {
 		a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
-		a.delayedHide(1500)
+		a.delayedHideIf(autoHide, 1500)
 		return
 	}
 
@@ -458,7 +484,7 @@ func (a *App) recognizeAndPaste(hasVoice bool, samples []float32) {
 	if err != nil {
 		logger.Error("Recognition failed: %v", err)
 		a.indicator.SetStatus(overlay.StatusError, "错误")
-		a.delayedHide(2000)
+		a.delayedHideIf(autoHide, 2000)
 		return
 	}
 
@@ -466,14 +492,14 @@ func (a *App) recognizeAndPaste(hasVoice bool, samples []float32) {
 
 	if text == "" {
 		a.indicator.SetStatus(overlay.StatusNoContent, "无内容")
-		a.delayedHide(1500)
+		a.delayedHideIf(autoHide, 1500)
 		return
 	}
 
 	logger.Info("Recognized: %s", text)
 	a.history.Add(text)
 
-	a.waitForHotkeyRelease()
+	a.waitForHotkeyRelease(hotkeyVK)
 
 	if err := a.paster.Paste(text); err != nil {
 		logger.Error("Paste failed, trying fallback: %v", err)
@@ -483,17 +509,17 @@ func (a *App) recognizeAndPaste(hasVoice bool, samples []float32) {
 	}
 
 	a.indicator.SetStatus(overlay.StatusDone, "完成")
-	if a.cfg.SoundFeedback {
+	if soundFeedback {
 		sound.PlayDone()
 	}
-	a.delayedHide(2000)
+	a.delayedHideIf(autoHide, 2000)
 }
 
 // waitForHotkeyRelease polls until the hotkey is released (max 500ms),
 // then waits an additional 50ms settling delay.
-func (a *App) waitForHotkeyRelease() {
+func (a *App) waitForHotkeyRelease(hotkeyVK int) {
 	for i := 0; i < 50; i++ {
-		if !a.hk.IsKeyDown(a.cfg.HotkeyVK) {
+		if !a.hk.IsKeyDown(hotkeyVK) {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -501,16 +527,30 @@ func (a *App) waitForHotkeyRelease() {
 	time.Sleep(50 * time.Millisecond)
 }
 
+// delayedHide hides the indicator after a delay if AutoHide is enabled.
+// Used from contexts where a.mu is held (reads a.cfg.AutoHide safely).
 func (a *App) delayedHide(delayMs int) {
 	if a.cfg.AutoHide {
-		gen := a.hideGen.Load()
-		go func() {
-			time.Sleep(time.Duration(delayMs) * time.Millisecond)
-			if a.hideGen.Load() == gen {
-				a.indicator.Hide()
-			}
-		}()
+		a.scheduleHide(delayMs)
 	}
+}
+
+// delayedHideIf hides the indicator after a delay if autoHide is true.
+// Used from goroutines with a pre-snapshotted config value.
+func (a *App) delayedHideIf(autoHide bool, delayMs int) {
+	if autoHide {
+		a.scheduleHide(delayMs)
+	}
+}
+
+func (a *App) scheduleHide(delayMs int) {
+	gen := a.hideGen.Load()
+	go func() {
+		time.Sleep(time.Duration(delayMs) * time.Millisecond)
+		if a.hideGen.Load() == gen {
+			a.indicator.Hide()
+		}
+	}()
 }
 
 func (a *App) initEngine() {
@@ -539,27 +579,40 @@ func (a *App) initEngine() {
 		"hardwareInfo": eng.HardwareInfo(),
 	})
 
-	// Show indicator briefly
-	keyName := hotkey.GetKeyName(a.cfg.HotkeyVK)
-	a.positionIndicator()
+	// Show indicator briefly — snapshot config under lock
+	a.mu.Lock()
+	hotkeyVK := a.cfg.HotkeyVK
+	autoHide := a.cfg.AutoHide
+	indX := a.cfg.IndicatorX
+	indY := a.cfg.IndicatorY
+	a.mu.Unlock()
+
+	keyName := hotkey.GetKeyName(hotkeyVK)
+	a.positionIndicatorAt(indX, indY)
 	a.indicator.SetStatus(overlay.StatusReady, "按住"+keyName+"说话")
 	a.indicator.Show()
-	a.delayedHide(2000)
+	a.delayedHideIf(autoHide, 2000)
 }
 
 // positionIndicator places the indicator at the saved position, or bottom-center if not saved.
+// Caller must hold a.mu (reads a.cfg).
 func (a *App) positionIndicator() {
-	if a.cfg.IndicatorX != 0 || a.cfg.IndicatorY != 0 {
-		a.indicator.SetPosition(a.cfg.IndicatorX, a.cfg.IndicatorY)
+	a.positionIndicatorAt(a.cfg.IndicatorX, a.cfg.IndicatorY)
+}
+
+// positionIndicatorAt places the indicator at (x, y), or bottom-center if both are 0.
+func (a *App) positionIndicatorAt(x, y int) {
+	if x != 0 || y != 0 {
+		a.indicator.SetPosition(x, y)
 		return
 	}
 	screen := a.wailsApp.Screen.GetPrimary()
 	if screen == nil {
 		return
 	}
-	x := screen.Bounds.X + (screen.Bounds.Width-170)/2
-	y := screen.Bounds.Y + screen.Bounds.Height - 48 - 100
-	a.indicator.SetPosition(x, y)
+	cx := screen.Bounds.X + (screen.Bounds.Width-170)/2
+	cy := screen.Bounds.Y + screen.Bounds.Height - 48 - 100
+	a.indicator.SetPosition(cx, cy)
 }
 
 func (a *App) showSettings() {
