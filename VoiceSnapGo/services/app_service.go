@@ -1,6 +1,8 @@
 package services
 
 import (
+	"os/exec"
+	"runtime"
 	"voicesnap/internal/config"
 )
 
@@ -34,4 +36,16 @@ func (s *AppService) GetVersion() string {
 // GetAppName returns the application name.
 func (s *AppService) GetAppName() string {
 	return "VoiceSnap"
+}
+
+// OpenURL opens a URL in the default browser.
+func (s *AppService) OpenURL(url string) {
+	switch runtime.GOOS {
+	case "darwin":
+		exec.Command("open", url).Start()
+	case "windows":
+		exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	default:
+		exec.Command("xdg-open", url).Start()
+	}
 }

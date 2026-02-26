@@ -7,74 +7,33 @@ package hotkey
 #cgo LDFLAGS: -framework Cocoa -framework ApplicationServices
 #import <Cocoa/Cocoa.h>
 #include <ApplicationServices/ApplicationServices.h>
-#include <pthread.h>
-
 static volatile int g_keysDown[128];
-static CFMachPortRef g_eventTap = NULL;
+static volatile int g_monitorStarted = 0;
 
-// CGEventTap callback — runs on dedicated thread
-static CGEventRef tapCallback(CGEventTapProxy proxy, CGEventType type,
-                              CGEventRef event, void* refcon) {
-	(void)proxy; (void)refcon;
-
-	// macOS auto-disables event taps that are slow. Re-enable immediately.
-	if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
-		if (g_eventTap) CGEventTapEnable(g_eventTap, true);
-		return event;
-	}
-
-	int keyCode = (int)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-	if (keyCode < 0 || keyCode >= 128) return event;
-
-	if (type == kCGEventKeyDown) {
-		g_keysDown[keyCode] = 1;
-	} else if (type == kCGEventKeyUp) {
-		g_keysDown[keyCode] = 0;
-	} else if (type == kCGEventFlagsChanged) {
-		CGEventFlags flags = CGEventGetFlags(event);
-		int down = 0;
-		switch (keyCode) {
-		case 0x3B: case 0x3E: down = (flags & kCGEventFlagMaskControl)   ? 1 : 0; break;
-		case 0x38: case 0x3C: down = (flags & kCGEventFlagMaskShift)     ? 1 : 0; break;
-		case 0x3A: case 0x3D: down = (flags & kCGEventFlagMaskAlternate) ? 1 : 0; break;
-		case 0x37: case 0x36: down = (flags & kCGEventFlagMaskCommand)   ? 1 : 0; break;
-		case 0x39:            down = (flags & kCGEventFlagMaskAlphaShift) ? 1 : 0; break;
-		}
-		g_keysDown[keyCode] = down;
-	}
-
-	return event;
+// handleKeyEvent tracks regular key state from NSEvent monitors.
+static void handleKeyEvent(unsigned short keyCode, BOOL isDown) {
+	if (keyCode >= 128) return;
+	g_keysDown[keyCode] = isDown ? 1 : 0;
 }
 
-// Dedicated thread for the CGEventTap run loop
-static void* tapThreadFunc(void* arg) {
-	(void)arg;
+// Start NSEvent global monitors for regular key events.
+// Modifier keys (Ctrl/Alt/Shift/Cmd) are handled via polling in isModifierDown().
+static void startGlobalMonitor(void) {
+	if (g_monitorStarted) return;
+	g_monitorStarted = 1;
 
-	CGEventMask mask = (1 << kCGEventKeyDown) | (1 << kCGEventKeyUp) | (1 << kCGEventFlagsChanged);
-	g_eventTap = CGEventTapCreate(
-		kCGHIDEventTap,
-		kCGHeadInsertEventTap,
-		kCGEventTapOptionListenOnly,
-		mask,
-		tapCallback,
-		NULL
-	);
+	NSEventMask keyMask = NSEventMaskKeyDown | NSEventMaskKeyUp;
 
-	if (!g_eventTap) {
-		NSLog(@"[hotkey] CGEventTapCreate failed — Accessibility permission not granted?");
-		return NULL;
-	}
+	[NSEvent addGlobalMonitorForEventsMatchingMask:keyMask handler:^(NSEvent *event) {
+		handleKeyEvent([event keyCode], [event type] == NSEventTypeKeyDown);
+	}];
 
-	CFRunLoopSourceRef source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, g_eventTap, 0);
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), source, kCFRunLoopCommonModes);
-	CGEventTapEnable(g_eventTap, true);
+	[NSEvent addLocalMonitorForEventsMatchingMask:keyMask handler:^NSEvent*(NSEvent *event) {
+		handleKeyEvent([event keyCode], [event type] == NSEventTypeKeyDown);
+		return event;
+	}];
 
-	NSLog(@"[hotkey] CGEventTap started (AXTrusted=%d)", AXIsProcessTrusted());
-
-	CFRunLoopRun(); // blocks forever, processing events
-
-	CFRelease(source);
-	return NULL;
+	// monitors started
 }
 
 static int ensureAccessibility(void) {
@@ -83,41 +42,61 @@ static int ensureAccessibility(void) {
 }
 
 static void startKeyMonitor(void) {
-	static int started = 0;
-	if (started) return;
-	started = 1;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		startGlobalMonitor();
+	});
+}
 
-	pthread_t thread;
-	pthread_create(&thread, NULL, tapThreadFunc, NULL);
-	pthread_detach(thread);
+// isModifierDown polls the current system modifier flags via CGEventSource.
+// This works globally without needing event tap or NSEvent monitor callbacks.
+static int isModifierDown(unsigned long long flagMask) {
+	CGEventFlags flags = CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState);
+	return (flags & flagMask) ? 1 : 0;
 }
 
 static int isKeyDown(int keyCode) {
 	if (keyCode >= 0 && keyCode < 128) return g_keysDown[keyCode];
 	return 0;
 }
+
+static int isMonitorStarted(void) {
+	return g_monitorStarted;
+}
 */
 import "C"
 
 import "voicesnap/internal/logger"
 
-// macOS key code mapping from VK (Windows-style) to macOS CGKeyCode.
+// macOS modifier flag masks for CGEventSourceFlagsState polling.
+const (
+	maskControl  = 0x40000  // kCGEventFlagMaskControl
+	maskShift    = 0x20000  // kCGEventFlagMaskShift
+	maskOption   = 0x80000  // kCGEventFlagMaskAlternate
+	maskCommand  = 0x100000 // kCGEventFlagMaskCommand
+	maskCapsLock = 0x10000  // kCGEventFlagMaskAlphaShift
+)
+
+// Modifier VK codes that use flag polling instead of key state array.
+var vkToFlagMask = map[int]C.ulonglong{
+	0x11: maskControl, // Ctrl
+	0xA2: maskControl, // L-Ctrl
+	0xA3: maskControl, // R-Ctrl
+	0x12: maskOption,  // Alt
+	0xA4: maskOption,  // L-Alt
+	0xA5: maskOption,  // R-Alt
+	0x10: maskShift,   // Shift
+	0xA0: maskShift,   // L-Shift
+	0xA1: maskShift,   // R-Shift
+	0x14: maskCapsLock, // Caps Lock
+	0x5B: maskCommand, // L-Cmd
+	0x5C: maskCommand, // R-Cmd
+}
+
+// macOS key code mapping for non-modifier keys.
 var vkToMac = map[int]int{
-	0x11: 0x3B, // Ctrl -> kVK_Control
-	0xA2: 0x3B, // L-Ctrl -> kVK_Control
-	0xA3: 0x3E, // R-Ctrl -> kVK_RightControl
-	0x12: 0x3A, // Alt -> kVK_Option
-	0xA4: 0x3A, // L-Alt -> kVK_Option
-	0xA5: 0x3D, // R-Alt -> kVK_RightOption
-	0x10: 0x38, // Shift -> kVK_Shift
-	0xA0: 0x38, // L-Shift -> kVK_Shift
-	0xA1: 0x3C, // R-Shift -> kVK_RightShift
-	0x14: 0x39, // Caps Lock
 	0x20: 0x31, // Space
 	0x09: 0x30, // Tab
 	0x0D: 0x24, // Enter/Return
-	0x5B: 0x37, // L-Cmd (Win)
-	0x5C: 0x36, // R-Cmd
 	0x1B: 0x35, // Esc
 }
 
@@ -135,6 +114,11 @@ func newPlatformListener() Listener {
 }
 
 func (l *darwinListener) IsKeyDown(vk int) bool {
+	// Modifier keys: poll system flags directly
+	if mask, ok := vkToFlagMask[vk]; ok {
+		return C.isModifierDown(mask) != 0
+	}
+	// Regular keys: check NSEvent-tracked state
 	macKey, ok := vkToMac[vk]
 	if !ok {
 		if vk >= 0x41 && vk <= 0x5A {
@@ -146,10 +130,27 @@ func (l *darwinListener) IsKeyDown(vk int) bool {
 	return C.isKeyDown(C.int(macKey)) != 0
 }
 
+// sameModifierGroup maps each modifier VK to its group.
+// All VKs in the same group share the same CGEventSourceFlagsState mask,
+// so pressing any one of them makes all appear "down". We must exclude
+// the entire group when checking for combination keys.
+var modifierGroups = map[int]int{
+	0x11: 1, 0xA2: 1, 0xA3: 1, // Ctrl / L-Ctrl / R-Ctrl
+	0x12: 2, 0xA4: 2, 0xA5: 2, // Alt / L-Alt / R-Alt
+	0x10: 3, 0xA0: 3, 0xA1: 3, // Shift / L-Shift / R-Shift
+	0x5B: 4, 0x5C: 4,           // L-Cmd / R-Cmd
+}
+
 func (l *darwinListener) IsAnyOtherKeyPressed(excludeVK int) bool {
+	excludeGroup := modifierGroups[excludeVK] // 0 if not a modifier
+
 	modifiers := []int{0x11, 0xA2, 0xA3, 0x12, 0xA4, 0xA5, 0x10, 0xA0, 0xA1}
 	for _, k := range modifiers {
 		if k == excludeVK {
+			continue
+		}
+		// Skip entire group sharing the same flag mask
+		if excludeGroup != 0 && modifierGroups[k] == excludeGroup {
 			continue
 		}
 		if l.IsKeyDown(k) {

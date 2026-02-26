@@ -22,3 +22,42 @@
 21. [12:41:06] 加好了.
 22. [12:42:15] 算了,我被你搞烦了,我去找 codex干.
 23. [12:50:24] 推送到 git 吧.
+24. [16:02:29] 安装一下 karabiner 试试看效果
+25. [16:03:21] 不要,撤回吧.
+26. [16:09:41] 热键唤不起来,你有什么办法 ,我已经加了隐私与安全性-辅助功能
+27. [16:11:45] 我删除了,是不是重启就会让我去打开?因为 app 有权限请求,是的话,你重启.
+28. [16:12:37] 唤不起来,怎么办.
+29. [16:15:35] 加好了.
+30. [16:16:22] 不行,不能.你先别改,讲讲.
+31. [16:21:49] 要的,加.
+32. [16:27:52] 我发现一个超级奇葩的事情.首先是必须在是 voicesnap 窗口上热键生效(但是左边的 ctrl 和 alt\shift 都无效 ,但caps 键有效)
+33. [16:30:13] 好,试试.
+34. [16:32:34] 指好了.
+35. [16:39:09] 我彻底关了,你重新打开时应该会让我去开启的吧. 还是需要我先添加?
+36. [16:39:47] bin下面,有两个voicesnap,一个文件200多 m,一个 15m,添加哪个
+37. [16:54:43] 好了.
+38. [16:56:44] 好了.
+39. [16:58:24]  不行,出不来.
+40. [17:00:18] 我改了,短按没有指示器出来.
+41. [17:04:41] 好了.
+42. [17:08:22] 好了.
+43. [17:09:51] 可以了,正常.效果非常好，现在没有问题了。
+44. [17:12:32] 现在窗口是 win\macos 通用的对吧. 关于页,增加一个 github 的入口,用外部浏览器打开. https://github.com/vorojar/VoiceSnap
+45. [17:17:19] <task-notification>
+<task-id>bq848ljqe</task-id>
+<tool-use-id>toolu_01TkNsVXVQdQDiJbdemrf7j6</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-longjiewu-Documents-mycode---/tasks/bq848ljqe.output</output-file>
+<status>completed</status>
+<summary>Background command "Launch voicesnap" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-longjiewu-Documents-mycode---/tasks/bq848ljqe.output
+46. [17:17:32] <task-notification>
+<task-id>bslyg7ph2</task-id>
+<tool-use-id>toolu_01XLKmo4TgaGJsjRQVW8FFve</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-longjiewu-Documents-mycode---/tasks/bslyg7ph2.output</output-file>
+<status>completed</status>
+<summary>Background command "Relaunch voicesnap" completed (exit code 0)</summary>
+</task-notification>
+Read the output file to retrieve the result: /private/tmp/claude-501/-Users-longjiewu-Documents-mycode---/tasks/bslyg7ph2.output
+47. [17:18:02] 我点了按钮没反应.
+48. [17:19:12] 可以了,你 git 推送吧.
