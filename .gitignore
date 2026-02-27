@@ -44,3 +44,5 @@
 **/config.json
 VoiceSnapGo/history.json
 **/.DS_Store
+**/.task/
+**/build/release/
