@@ -10,7 +10,8 @@
 #        --password "app-specific-password"
 #
 # Usage:
-#   cd VoiceSnapGo && ./scripts/build-release-macos.sh
+#   cd VoiceSnapGo && ./scripts/build-release-macos.sh [arm64|x86_64|all]
+#   Default: build for current machine architecture
 #
 set -euo pipefail
 
@@ -25,15 +26,50 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 VERSION=$(defaults read "$PROJECT_DIR/build/darwin/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "2.1.0")
-DMG_NAME="${APP_NAME}-v${VERSION}-arm64.dmg"
 
-BUILD_DIR="$PROJECT_DIR/build/release"
-APP_BUNDLE="$BUILD_DIR/${APP_NAME}.app"
 ENTITLEMENTS="$PROJECT_DIR/build/darwin/entitlements.plist"
 INFO_PLIST="$PROJECT_DIR/build/darwin/Info.plist"
-
 GOMODCACHE=$(go env GOMODCACHE)
-SHERPA_LIB_DIR="$GOMODCACHE/github.com/k2-fsa/sherpa-onnx-go-macos@v1.12.24/lib/aarch64-apple-darwin"
+
+# ── Architecture mapping ────────────────────────────────────────────────────
+resolve_arch() {
+  local arch="$1"
+  case "$arch" in
+    arm64)
+      GOARCH="arm64"
+      SHERPA_ARCH="aarch64-apple-darwin"
+      DMG_ARCH="arm64"
+      ;;
+    x86_64|amd64)
+      GOARCH="amd64"
+      SHERPA_ARCH="x86_64-apple-darwin"
+      DMG_ARCH="x86_64"
+      ;;
+    *)
+      fail "Unknown architecture: $arch (use arm64 or x86_64)"
+      ;;
+  esac
+  SHERPA_LIB_DIR="$GOMODCACHE/github.com/k2-fsa/sherpa-onnx-go-macos@v1.12.24/lib/$SHERPA_ARCH"
+  DMG_NAME="${APP_NAME}-v${VERSION}-${DMG_ARCH}.dmg"
+  BUILD_DIR="$PROJECT_DIR/build/release/${DMG_ARCH}"
+  APP_BUNDLE="$BUILD_DIR/${APP_NAME}.app"
+}
+
+# ── Parse argument ──────────────────────────────────────────────────────────
+TARGET_ARCH="${1:-$(uname -m)}"
+
+if [[ "$TARGET_ARCH" == "all" ]]; then
+  echo "==> Building for ALL architectures"
+  "$0" arm64
+  "$0" x86_64
+  echo ""
+  echo "==> All builds complete!"
+  ls -lh "$PROJECT_DIR/build/release/"*/*.dmg
+  exit 0
+fi
+
+resolve_arch "$TARGET_ARCH"
+echo "==> Target: $DMG_ARCH (GOARCH=$GOARCH)"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 step() { echo ""; echo "==> $1"; }
@@ -59,8 +95,8 @@ npm run build
 cd "$PROJECT_DIR"
 
 # ── Step 3: Build Go binary ──────────────────────────────────────────────────
-step "Building Go binary (arm64)"
-CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 \
+step "Building Go binary ($DMG_ARCH, GOARCH=$GOARCH)"
+CGO_ENABLED=1 GOOS=darwin GOARCH="$GOARCH" \
   go build -buildvcs=false -gcflags=all="-l" -ldflags="-s -w" \
   -o "$BUILD_DIR/${APP_NAME}"
 
@@ -161,9 +197,10 @@ step "Stapling notarization ticket"
 xcrun stapler staple "$DMG_PATH"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-step "Build complete!"
+step "Build complete! ($DMG_ARCH)"
 echo ""
-echo "  DMG: $DMG_PATH"
+echo "  Arch: $DMG_ARCH"
+echo "  DMG:  $DMG_PATH"
 echo "  Size: $(du -h "$DMG_PATH" | cut -f1)"
 echo ""
 echo "Verification commands:"

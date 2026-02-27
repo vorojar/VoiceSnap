@@ -154,8 +154,7 @@ func RunApp() error {
 
 	// Create system tray
 	tray := wailsApp.SystemTray.New()
-	tray.SetLabel(appName)
-	tray.SetIcon(appIcon)
+	tray.SetTemplateIcon(trayIcon)
 
 	showLabel, exitLabel := "Show Settings", "Exit"
 	if isChinese() {
