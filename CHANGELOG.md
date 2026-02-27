@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.3.0 (2026-02-27)
+
+### 新功能
+
+- **Windows 7 专用版** — 新增 `VoiceSnapWin7` 精简版，支持 64 位 Windows 7
+  - 去除 Wails/WebView2 依赖，使用原生 Win32 系统托盘
+  - CPU 推理（DirectML 需 Win10，Win7 不支持）
+  - 使用 Go 1.20（最后支持 Win7 的版本）+ onnxruntime-for-win7 兼容层
+  - 首次启动自动下载语音模型（~152 MB），带 Win32 原生进度条
+  - 托盘右键菜单：设置热键、提示音开关、开机自启动、GitHub 链接、退出
+  - 热键设置对话框：按键捕获，支持 Ctrl/Alt/Shift/CapsLock/F1-F12
+  - 7z 自解压打包（`build_sfx.sh`），最终发布文件仅 6.7 MB
+  - 91 个 DLL 兼容层（含 Win7 API shim），解压即用
+
+---
+
 ## v2.1.1 (2026-02-27)
 
 ### Bug 修复
