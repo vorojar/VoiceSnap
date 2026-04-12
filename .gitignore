@@ -46,6 +46,7 @@
 **/PLAN.md
 **/config.json
 VoiceSnapGo/history.json
+VoiceSnapGo/instructions.md
 **/.DS_Store
 **/.task/
 **/build/release/
